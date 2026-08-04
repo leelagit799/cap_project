@@ -1,0 +1,101 @@
+{
+  "E11.9": {
+    "diagnosis": "Type 2 Diabetes Mellitus",
+    "required_followup": "Endocrinology within 30 days",
+    "essential_meds": [
+      "Metformin"
+    ]
+  },
+  "I10": {
+    "diagnosis": "Hypertension",
+    "required_followup": "PCP within 30 days",
+    "essential_meds": [
+      "ACE inhibitor or ARB"
+    ]
+  },
+  "I50.9": {
+    "diagnosis": "Congestive Heart Failure",
+    "required_followup": "Cardiology within 14 days",
+    "essential_meds": [
+      "Diuretic",
+      "ACE inhibitor",
+      "Beta-blocker"
+    ]
+  },
+  "I21.9": {
+    "diagnosis": "Acute Myocardial Infarction",
+    "required_followup": "Cardiology within 7 days",
+    "essential_meds": [
+      "Aspirin",
+      "P2Y12 inhibitor",
+      "Statin",
+      "Beta-blocker"
+    ]
+  },
+  "J45.909": {
+    "diagnosis": "Asthma exacerbation",
+    "required_followup": "Pulmonology within 30 days",
+    "essential_meds": [
+      "SABA",
+      "ICS"
+    ]
+  },
+  "J18.9": {
+    "diagnosis": "Pneumonia",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": [
+      "Antibiotic"
+    ]
+  },
+  "J20.9": {
+    "diagnosis": "Acute bronchitis",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": []
+  },
+  "J44.9": {
+    "diagnosis": "COPD exacerbation",
+    "required_followup": "Pulmonology within 14 days",
+    "essential_meds": [
+      "LAMA",
+      "SABA",
+      "Steroid burst"
+    ]
+  },
+  "N39.0": {
+    "diagnosis": "Urinary tract infection",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": [
+      "Antibiotic"
+    ]
+  },
+  "K35.80": {
+    "diagnosis": "Acute appendicitis",
+    "required_followup": "Surgery within 14 days",
+    "essential_meds": [
+      "Antibiotic",
+      "Analgesic"
+    ]
+  },
+  "K52.9": {
+    "diagnosis": "Acute gastroenteritis",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": [
+      "Antiemetic",
+      "Oral rehydration"
+    ]
+  },
+  "A01.0": {
+    "diagnosis": "Typhoid (enteric) fever",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": [
+      "Antibiotic"
+    ]
+  },
+  "N10": {
+    "diagnosis": "Acute pyelonephritis",
+    "required_followup": "PCP within 14 days",
+    "essential_meds": [
+      "Antibiotic"
+    ]
+  }
+}

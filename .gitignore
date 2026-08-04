@@ -17,8 +17,14 @@ venv/
 .ruff_cache/
 
 # Generated runtime data
-sample2/data/
-sample2/mock_ehr/data/
+sample2/data/*
+!sample2/data/.gitkeep
+!sample2/data/reports/.gitkeep
+!sample2/data/sessions/.gitkeep
+!sample2/data/state/.gitkeep
+!sample2/data/vector_db/.gitkeep
+sample2/mock_ehr/data/*
+!sample2/mock_ehr/data/*.json
 *.sqlite
 *.sqlite3
 *.faiss
