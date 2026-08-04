@@ -276,6 +276,8 @@ class ValidationResult(_Base):
     recommendation_text: str = ""
     rules_version: str = ""
     translation_confidence: float | None = None
+    triggered_guardrails: list[str] = Field(default_factory=list)
+    service_line: str | None = None
     validated_at: str = Field(default_factory=utc_now_iso)
 
     @property
