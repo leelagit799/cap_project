@@ -141,7 +141,7 @@ def page_documents(svc: DashboardService) -> None:
     ids = [entry["patient_id"] for entry in discovered["patients"]]
     left, right = st.columns([3, 1])
     with left:
-        patient_id = st.selectbox("Patient", ids)
+        patient_id = st.selectbox("Patient", ids, key="document-viewer-patient")
     entry = next(e for e in discovered["patients"] if e["patient_id"] == patient_id)
 
     with right:
@@ -192,7 +192,12 @@ def page_documents(svc: DashboardService) -> None:
 
             with st.spinner("Extracting document text…"):
                 text = svc.document_text(uri)
-            st.text_area("Source text", text, height=340, key=f"doc-{doc_type}")
+            st.text_area(
+                "Source text",
+                text,
+                height=340,
+                key=f"doc-{patient_id}-{doc_type}",
+            )
 
     record = None
     for case in svc.cases(patient_id=patient_id):

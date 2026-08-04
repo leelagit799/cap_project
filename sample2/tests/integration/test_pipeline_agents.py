@@ -121,6 +121,19 @@ class TestExtraction:
         assert record["lab_report"]["tests"]
         assert record["bill"]["total_amount"] is not None
 
+    @pytest.mark.parametrize(
+        "patient_id",
+        ["P1019", "P1020", "P1021", "P1022", "P1023", "P1024"],
+    )
+    async def test_document_patient_ids_match_case(self, patient_id):
+        """Each sub-document must carry the same patient id as the case."""
+        async with pipeline() as (extractor, _, _):
+            record = (await extractor.extract(patient_id, f"CASE-{patient_id}"))["record"]
+
+        assert record["patient_id"] == patient_id
+        for section in ("discharge_report", "lab_report", "bill"):
+            assert record[section]["patient_id"] == patient_id, section
+
     async def test_documented_gaps_survive_extraction(self):
         """Extraction must not invent values for the dataset's deliberate gaps."""
         async with pipeline() as (extractor, _, _):

@@ -155,18 +155,45 @@ def build_graph(gateway: ToolGateway):
 
         return node
 
+    def _stamp_patient_ids(record: dict[str, Any], patient_id: str) -> None:
+        """Ensure each parsed sub-document carries the case patient id.
+
+        Dutch and other non-ASCII headers can fail to parse when a file was saved
+        or read with the wrong encoding, leaving ``patient_id`` empty in one
+        section while the top-level case id is correct.
+        """
+        for section in ("discharge_report", "lab_report", "bill"):
+            payload = record.get(section)
+            if not isinstance(payload, dict):
+                continue
+            doc_id = payload.get("patient_id")
+            if not doc_id:
+                payload["patient_id"] = patient_id
+
     async def assemble(state: ExtractorState) -> dict[str, Any]:
         """Build the ClinicalRecord the downstream agents consume."""
         documents = [
             SourceDocument(**{k: v for k, v in doc.items() if k in SourceDocument.model_fields})
             for doc in state.get("documents", [])
         ]
+        patient_id = state["patient_id"]
+        discharge_report = state.get("discharge_report")
+        lab_report = state.get("lab_report")
+        bill = state.get("bill")
+        _stamp_patient_ids(
+            {
+                "discharge_report": discharge_report,
+                "lab_report": lab_report,
+                "bill": bill,
+            },
+            patient_id,
+        )
         record = ClinicalRecord(
-            patient_id=state["patient_id"],
+            patient_id=patient_id,
             case_id=state["case_id"],
-            discharge_report=state.get("discharge_report"),
-            lab_report=state.get("lab_report"),
-            bill=state.get("bill"),
+            discharge_report=discharge_report,
+            lab_report=lab_report,
+            bill=bill,
             documents=documents,
             extraction_warnings=state.get("warnings", []),
             extracted_at=utc_now_iso(),

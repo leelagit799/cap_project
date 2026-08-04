@@ -57,8 +57,8 @@ def _alias_map(aliases: dict[str, tuple[str, ...]]) -> dict[str, str]:
 #: Header labels for discharge reports across en / es / hi / de / fr / nl.
 DISCHARGE_LABELS = _alias_map(
     {
-        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "रोगी आईडी",
-                       "Patienten-ID", "ID du Patient", "Patient Id"),
+        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "PatiÃ«ntnummer",
+                       "रोगी आईडी", "Patienten-ID", "ID du Patient", "Patient Id"),
         "patient_name": ("Patient Name", "Nombre", "Naam", "रोगी का नाम", "Name",
                          "Nom du Patient", "Nom"),
         "dob": ("Date of Birth", "Fecha de Nacimiento", "Geboortedatum", "जन्म तिथि",
@@ -91,7 +91,7 @@ DISCHARGE_LABELS = _alias_map(
 
 LAB_LABELS = _alias_map(
     {
-        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "रोगी आईडी"),
+        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "PatiÃ«ntnummer", "रोगी आईडी"),
         "patient_name": ("Patient Name", "Nombre", "Naam", "रोगी का नाम"),
         "lab_name": ("Performing Lab", "Laboratorio", "Laboratorium",
                      "Uitvoerend laboratorium", "प्रयोगशाला", "Labor", "Laboratoire"),
@@ -109,7 +109,7 @@ BILL_LABELS = _alias_map(
     {
         "bill_id": ("Bill ID", "Invoice No", "Factuurnr.", "Factuurnummer",
                     "Nº de Factura", "No. de Factura", "बिल आईडी", "Rechnungsnr."),
-        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "रोगी आईडी"),
+        "patient_id": ("Patient ID", "ID del Paciente", "Patiëntnummer", "PatiÃ«ntnummer", "रोगी आईडी"),
         "patient_name": ("Patient Name", "Nombre", "Naam", "रोगी का नाम"),
         "billing_date": ("Issue Date", "Billing Date", "Fecha de Emisión",
                          "Factuurdatum", "बिल तिथि", "Rechnungsdatum"),
