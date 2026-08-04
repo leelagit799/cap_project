@@ -17,10 +17,19 @@ sample2/
 
 ## Development setup
 
+> `.venv` (including `Scripts/` on Windows or `bin/` on Linux) is **never** committed to git.
+
 ```bash
 cd sample2
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+
+# Windows
+.\scripts\setup.ps1
+.\.venv\Scripts\Activate.ps1
+
+# Linux / Mac
+bash scripts/setup.sh
+source .venv/bin/activate
+
 cp .env.example .env   # fill credentials or set LLM_OFFLINE=1
 ```
 

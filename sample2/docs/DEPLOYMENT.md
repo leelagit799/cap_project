@@ -12,10 +12,30 @@ Deployment target per the specification: **NuvePro Lab** (Python 3.11+, no Docke
 
 ## Installation
 
+> **Important:** `.venv` is git-ignored. It is created locally on your machine and must never be pushed to GitHub. On Windows the executables live in `.venv/Scripts/`; on Linux/Mac they live in `.venv/bin/`.
+
+### Automated setup
+
+**Windows (PowerShell):**
+```powershell
+cd sample2
+.\scripts\setup.ps1
+.\.venv\Scripts\Activate.ps1
+```
+
+**Linux / Mac:**
+```bash
+cd sample2
+bash scripts/setup.sh
+source .venv/bin/activate
+```
+
+### Manual setup
+
 ```bash
 cd sample2
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
