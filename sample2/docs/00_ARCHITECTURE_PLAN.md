@@ -1,7 +1,25 @@
 # DischargeFlow — Architecture & Implementation Plan
 
 **Source of truth:** `FA5_SP_Interns_Capstone_AI_Discharge_Summaries.docx` (read in full: sections 1–10, Tables 1–15, Figure 1).
-**Status:** AWAITING APPROVAL. No application code will be written until this plan is approved.
+**Status:** APPROVED. Phases P0–P4 are implemented, tested and committed; P5–P12 are pending.
+
+## Build status
+
+| Phase | Scope | State |
+|---|---|---|
+| P0 | Foundation: config, contracts, logging, retry, errors | Done |
+| P1 | Mock EHR REST API :8050 | Done |
+| P2 | Primary MCP :8200 — all six primitives | Done |
+| P3 | Secondary MCP :8201 + multi-server client | Done |
+| P4 | A2A layer — cards, auth, streaming + non-streaming | Done |
+| P5–P12 | Agents, RAG, orchestrator, dashboard, hardening | Pending |
+
+124 tests pass (unit, integration and live end-to-end). Credentials are verified working:
+Bedrock Nova Lite and Cohere Command R+ both return completions, and the LangFuse auth check
+succeeds. Two deviations from the folder plan below were made during the build and are marked
+in place: the MCP package is named `mcp_servers/` (not `mcp/`) so it can never shadow the
+installed `mcp` SDK on `sys.path`, and `analytics/risk.py` holds the shared risk engine used by
+both servers.
 
 This document answers Step 1 (deliverables 1–8) and records the verification results for Steps 2–5, plus the
 blockers from Step 13 (secrets) and the specification conflicts that need your ruling.
@@ -345,11 +363,13 @@ sample2/
 │   ├── observability/             # LangFuse client, span helpers, JSONL fallback
 │   ├── guardrails/                # pii · hallucination · injection · toxicity · manager
 │   ├── ehr/                       # FastAPI app :8050, routers, repository
-│   ├── mcp/
-│   │   ├── primary/               # server, resources, prompts, roots, sampling, elicitation
+│   ├── mcp_servers/               # named mcp_servers, not mcp, to avoid shadowing the SDK
+│   │   ├── primary/               # server, resources, prompts, roots + tools/
 │   │   │   └── tools/             # watcher · harvester · lang_bridge · rules_engine · ehr_validator · reporter
 │   │   ├── analytics/             # server :8201 + 3 analytics tools
-│   │   └── client/                # mcp-use multi-server client, callbacks
+│   │   └── client.py              # multi-server client with sampling/elicitation/roots callbacks
+│   ├── analytics/                 # shared risk engine used by both MCP servers
+│   ├── documents/                 # TXT/JSON/PDF/DOCX/PNG loaders with OCR sidecar preference
 │   ├── a2a/                       # base server, agent cards, shared-secret auth, client, streaming, push
 │   ├── agents/
 │   │   ├── adk/                   # host_orchestrator · monitor · summary_generator
@@ -521,27 +541,20 @@ Nothing is hardcoded. All of these are read from environment variables via `.env
 
 | Secret | Env var | Needed for | Blocking? |
 |---|---|---|---|
-| AWS access key / secret / region | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | Bedrock Nova Lite (primary LLM, MCP Sampling) | Live translation + summaries |
-| Bedrock model id | `BEDROCK_MODEL_ID` | LiteLLM routing | Defaults to `bedrock/amazon.nova-lite-v1:0` |
-| Cohere API key | `COHERE_API_KEY` | Command R+ fallback | Fallback path |
-| LangFuse keys + host | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | Live tracing | No — JSONL fallback sink |
-| A2A shared secret | `AGENT_AUTH_TOKEN` | A2A auth (currently `change-this-for-production` in `agent_config.yaml`) | I will generate a dev value; supply your own for the demo |
+| AWS access key / secret / region | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | Bedrock Nova Lite (primary LLM, MCP Sampling) | **Supplied and verified** |
+| Bedrock model ids | `BEDROCK_PRIMARY_MODEL`, `BEDROCK_FALLBACK_MODEL` | LiteLLM routing | Default to `bedrock/amazon.nova-lite-v1:0` and `bedrock/cohere.command-r-plus-v1:0` |
+| Cohere API key | `COHERE_API_KEY` | Command R+ fallback | **Not needed.** Command R+ is reachable through Bedrock on the supplied credentials, so the mandated fallback works without a separate Cohere account |
+| LangFuse keys + host | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | Live tracing | **Supplied and verified** (`auth_check()` returns true) |
+| A2A shared secret | `AGENT_AUTH_TOKEN` | A2A auth | Generated; stored in the git-ignored `.env` |
 | Database URL | — | Not needed; SQLite is file-based | No |
 | SMTP / Google credentials | — | Not referenced anywhere in the document | No |
+| SerpAPI key | `SERPAPI_API_KEY` | Not referenced anywhere in the document | No — stored but unused |
 
-**Offline deterministic mode.** So the system is demonstrable without credentials, the LiteLLM gateway supports
-`LLM_OFFLINE=1`: rule-based translation from the shipped bilingual fixtures and template-driven summaries, with
-every response tagged `provenance="offline-deterministic"` in the audit trail. This is a **fallback for
-development, not a substitute** for the mandated models — the Bedrock/Cohere path is fully implemented and is
-what runs the moment credentials exist.
+**Security note.** The credentials were pasted into a chat message, so they should be treated as
+exposed and rotated once the project is delivered. They live only in `sample2/.env`, which is
+git-ignored and was verified absent from every commit.
 
----
-
-## 11. What I need from you
-
-1. **Approve or amend this plan** — coding starts only after that.
-2. **Rule on conflicts C1–C4** (Streamlit/Gradio vs Next.js; 5 pages vs 20; SQLite vs Postgres; Docker/CI in or
-   out). My default is to follow the document, per your final instruction.
-3. **Provide the secrets in §10**, or tell me to proceed in offline deterministic mode.
-4. **Confirm the phase cadence** — stop for approval after every phase, or run P0→P4 (infrastructure) in one go
-   and check in there.
+**Offline deterministic mode.** `LLM_OFFLINE=1` keeps the system demonstrable without credentials, and the
+test suite runs in it. Offline translations are capped below the 0.70 confidence threshold on purpose, so an
+offline run routes to HITL instead of silently auto-approving. With the supplied credentials the live
+Bedrock path is the default.
