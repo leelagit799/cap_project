@@ -1,7 +1,7 @@
 # DischargeFlow — Architecture & Implementation Plan
 
 **Source of truth:** `FA5_SP_Interns_Capstone_AI_Discharge_Summaries.docx` (read in full: sections 1–10, Tables 1–15, Figure 1).
-**Status:** APPROVED. Phases P0–P4 are implemented, tested and committed; P5–P12 are pending.
+**Status:** APPROVED. Phases P0–P12 are implemented, tested and committed.
 
 ## Build status
 
@@ -12,9 +12,16 @@
 | P2 | Primary MCP :8200 — all six primitives | Done |
 | P3 | Secondary MCP :8201 + multi-server client | Done |
 | P4 | A2A layer — cards, auth, streaming + non-streaming | Done |
-| P5–P12 | Agents, RAG, orchestrator, dashboard, hardening | Pending |
+| P5 | LangGraph Extractor :8100 | Done |
+| P6 | LangGraph Normalizer :8102 + MCP Sampling | Done |
+| P7 | LangGraph Validator :8101 + elicitation + risk | Done |
+| P8 | Reporter Tool — JSON/HTML/PDF audit artifacts | Done |
+| P9 | Agno RAG :8105 — five roles, FAISS, RAG Triad | Done |
+| P10 | ADK Monitor/Summary/Host + LangFuse observability | Done |
+| P11 | Streamlit HITL :8501 — five pages + elicitation callback | Done |
+| P12 | `run.py` supervisor, tests, README, hardening | Done |
 
-124 tests pass (unit, integration and live end-to-end). Credentials are verified working:
+229 tests pass (unit, integration and live end-to-end). Credentials are verified working:
 Bedrock Nova Lite and Cohere Command R+ both return completions, and the LangFuse auth check
 succeeds. Two deviations from the folder plan below were made during the build and are marked
 in place: the MCP package is named `mcp_servers/` (not `mcp/`) so it can never shadow the
