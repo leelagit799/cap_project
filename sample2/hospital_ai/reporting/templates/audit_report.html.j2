@@ -1,0 +1,184 @@
+{#
+  Clinician-facing discharge audit report — doc §2.5.
+  Also served as the MCP resource resource://report-template/html.
+#}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discharge Audit Report — {{ patient_id }}</title>
+<style>
+  :root {
+    --bg: #f6f8fb; --card: #ffffff; --ink: #14213d; --muted: #5c6b8a;
+    --line: #e3e9f2; --low: #1a7f5a; --medium: #b06e00; --high: #c0332e;
+    --accent: #2b5fd9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1420; --card:#161d2c; --ink:#e8edf7; --muted:#93a1bd; --line:#26314a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:32px; background:var(--bg); color:var(--ink);
+         font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header { display:flex; justify-content:space-between; align-items:flex-start;
+           gap:24px; margin-bottom:24px; }
+  h1 { font-size:24px; margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:20px 24px; margin-bottom:18px; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:.07em;
+       color:var(--muted); margin:0 0 14px; }
+  .badge { display:inline-block; padding:7px 16px; border-radius:999px;
+           font-weight:700; font-size:13px; letter-spacing:.03em; color:#fff; }
+  .badge.Low { background:var(--low); } .badge.Medium { background:var(--medium); }
+  .badge.High { background:var(--high); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; }
+  .metric .label { color:var(--muted); font-size:12px; text-transform:uppercase;
+                   letter-spacing:.06em; }
+  .metric .value { font-size:22px; font-weight:700; margin-top:2px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th { text-align:left; color:var(--muted); font-size:12px; text-transform:uppercase;
+       letter-spacing:.05em; border-bottom:2px solid var(--line); padding:8px 10px; }
+  td { padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .sev { font-weight:700; font-size:12px; letter-spacing:.04em; }
+  .sev.critical { color:var(--high); } .sev.warning { color:var(--medium); }
+  .sev.info { color:var(--muted); }
+  .blocked { background:var(--high); color:#fff; padding:14px 18px; border-radius:10px;
+             font-weight:600; margin-bottom:18px; }
+  .cleared { background:var(--low); color:#fff; padding:14px 18px; border-radius:10px;
+             font-weight:600; margin-bottom:18px; }
+  code { background:rgba(127,127,127,.14); padding:1px 6px; border-radius:4px; font-size:13px; }
+  footer { color:var(--muted); font-size:12px; margin-top:26px; padding-top:16px;
+           border-top:1px solid var(--line); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Discharge Audit Report</h1>
+      <div class="sub">
+        {{ patient_name or patient_id }} &middot; Case <code>{{ case_id }}</code>
+        &middot; Generated {{ generated_at }}
+      </div>
+    </div>
+    <span class="badge {{ risk_level }}">{{ risk_level }} Risk</span>
+  </header>
+
+  {% if discharge_blocked %}
+    <div class="blocked">
+      Discharge blocked — {{ recommendation_text }}
+      Automated summary generation is suppressed until a clinician resolves the
+      findings below.
+    </div>
+  {% else %}
+    <div class="cleared">Cleared for release — {{ recommendation_text }}</div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Summary</h2>
+    <div class="grid">
+      <div class="metric"><div class="label">Risk score</div>
+        <div class="value">{{ risk_score }}</div></div>
+      <div class="metric"><div class="label">Completeness</div>
+        <div class="value">{{ completeness_score }}%</div></div>
+      <div class="metric"><div class="label">Translation confidence</div>
+        <div class="value">
+          {% if translation_confidence is not none %}{{ '%.2f'|format(translation_confidence) }}
+          {% else %}&mdash;{% endif %}
+        </div></div>
+      <div class="metric"><div class="label">Findings</div>
+        <div class="value">{{ findings|length }}</div></div>
+      <div class="metric"><div class="label">Bill</div>
+        <div class="value">
+          {% if bill_total is not none %}{{ currency }}{{ '%.2f'|format(bill_total) }}
+          {% else %}&mdash;{% endif %}
+        </div>
+        <div class="sub">{{ payment_status }}</div></div>
+      <div class="metric"><div class="label">Recommendation</div>
+        <div class="value" style="font-size:16px">{{ recommendation }}</div></div>
+    </div>
+  </div>
+
+  {% if triggered_guardrails %}
+  <div class="card">
+    <h2>Hard guardrails triggered</h2>
+    <ul>{% for g in triggered_guardrails %}<li><code>{{ g }}</code></li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Validation findings</h2>
+    {% if findings %}
+    <table>
+      <thead><tr><th>Rule</th><th>Severity</th><th>Detail</th><th>Weight</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for f in findings %}
+        <tr>
+          <td><code>{{ f.rule_id }}</code></td>
+          <td><span class="sev {{ f.severity }}">{{ f.severity|upper }}</span></td>
+          <td>{{ f.message }}
+            {% if f.expected is not none or f.actual is not none %}
+              <div class="sub">expected: {{ f.expected }} &middot; found: {{ f.actual }}</div>
+            {% endif %}
+          </td>
+          <td>{{ f.weight }}</td>
+          <td>{% if f.resolved %}Resolved{% elif f.blocking %}Blocking{% else %}Open{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p>No validation findings. All completeness and cross-validation rules passed.</p>
+    {% endif %}
+  </div>
+
+  {% if elicitations %}
+  <div class="card">
+    <h2>Reviewer elicitations</h2>
+    <table>
+      <thead><tr><th>Fields requested</th><th>Outcome</th><th>Note</th></tr></thead>
+      <tbody>
+      {% for e in elicitations %}
+        <tr>
+          <td>{{ e.fields_requested|join(', ') }}</td>
+          <td><strong>{{ e.action|upper }}</strong></td>
+          <td>{{ e.note }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if audit_trail %}
+  <div class="card">
+    <h2>Audit trail</h2>
+    <table>
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Detail</th></tr></thead>
+      <tbody>
+      {% for event in audit_trail %}
+        <tr>
+          <td>{{ event.at }}</td><td>{{ event.actor }}</td>
+          <td>{{ event.action }}</td><td>{{ event.detail }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <footer>
+    Rules version <code>{{ rules_version[:16] }}…</code>
+    &middot; LangFuse trace <code>{{ trace_id }}</code>
+    {% if langfuse_url %}&middot; <a href="{{ langfuse_url }}">Open trace</a>{% endif %}
+    <br>St. Marian Regional Medical Center &middot; DischargeFlow automated audit.
+    This report supports clinical review; it does not replace clinician judgement.
+  </footer>
+
+</div>
+</body>
+</html>
