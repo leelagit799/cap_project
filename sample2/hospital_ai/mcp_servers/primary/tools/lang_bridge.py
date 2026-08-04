@@ -138,7 +138,13 @@ def score_translation_confidence(
         return 0.0
 
     ratio = len(translated) / max(len(source), 1)
-    length_plausibility = 1.0 if 0.5 <= ratio <= 2.5 else max(0.0, 1.0 - abs(1 - ratio) / 3)
+    if len(source) < 25:
+        # Short fields translate to wildly varying lengths ("Man" -> "Male",
+        # or a one-line clause the model expands). Length tells us nothing
+        # here, so judge them on detection certainty alone.
+        length_plausibility = 1.0
+    else:
+        length_plausibility = 1.0 if 0.5 <= ratio <= 2.5 else max(0.0, 1.0 - abs(1 - ratio) / 3)
 
     score = 0.5 * detection_confidence + 0.5 * length_plausibility
     if not sampled:
@@ -150,11 +156,18 @@ async def translate_via_sampling(
     ctx,
     text: str,
     source_language: str | None = None,
+    detection_confidence: float | None = None,
     *,
     max_tokens: int = 2048,
 ) -> dict[str, Any]:
-    """Translate clinical text by asking the *client* to run inference."""
-    detected, detection_confidence = detect_language(text)
+    """Translate clinical text by asking the *client* to run inference.
+
+    ``detection_confidence`` lets a caller supply the language certainty it
+    measured across the whole record. Re-detecting from a three-character field
+    such as a gender value would produce a meaningless score.
+    """
+    detected, measured = detect_language(text)
+    detection_confidence = measured if detection_confidence is None else detection_confidence
     language = source_language or detected
 
     system_prompt = render("abbreviation-normalization-prompt", source_language=language)
@@ -240,9 +253,12 @@ def register(mcp) -> None:
         ),
     )
     async def medical_lang_bridge(
-        ctx: Context, text: str, source_language: str | None = None
+        ctx: Context,
+        text: str,
+        source_language: str | None = None,
+        detection_confidence: float | None = None,
     ) -> dict[str, Any]:
-        return await translate_via_sampling(ctx, text, source_language)
+        return await translate_via_sampling(ctx, text, source_language, detection_confidence)
 
     @mcp.tool(
         name="detect_clinical_language",
