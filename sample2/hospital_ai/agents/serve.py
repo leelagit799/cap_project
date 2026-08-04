@@ -103,10 +103,8 @@ def serve(agent_name: str) -> None:
         stream_handler=stream_handler if streaming else None,
     )
 
-    # The MCP session is opened on the first request rather than at import
-    # time, so it binds to uvicorn's event loop.
-    app.router.on_startup.append(ensure_agent)
-
+    # MCP session opens lazily on the first A2A request via ensure_agent() in the
+    # handlers above. Starlette 1.3+ removed router.on_startup — do not use it.
     uvicorn.run(app, host="0.0.0.0", port=port, log_level=settings.log_level.lower())
 
 
