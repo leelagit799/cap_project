@@ -1,0 +1,17 @@
+agent_auth_token: change-this-for-production
+ports:
+  ehr: 8050
+  extractor: 8100
+  validator: 8101
+  normalizer: 8102
+  monitor: 8103
+  summary: 8104
+  rag: 8105
+  host: 8083
+  primary_mcp: 8200
+  analytics_mcp: 8201
+  dashboard: 8501
+llm:
+  primary: bedrock/nova-lite-v1
+  english_fallback: cohere/command-r-plus
+  embedding: sentence-transformers/all-MiniLM-L6-v2

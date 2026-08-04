@@ -1,0 +1,15 @@
+discharge-extraction-prompt: |
+  Extract patient demographics, diagnosis, allergies, prescriptions, follow-up,
+  approval state, laboratory follow-up and bill information. Preserve source facts.
+ehr-cross-validation-prompt: |
+  Compare the extracted discharge record for {patient_id} with the EHR. Report
+  only factual differences and cite the applicable rule.
+abbreviation-normalization-prompt: |
+  Translate the {source_language} clinical record to plain English and expand
+  medical abbreviations without changing clinical meaning.
+summary-generation-prompt: |
+  Create a calm, patient-friendly discharge summary for a {risk_level} risk case.
+  Use plain English and never invent clinical advice.
+rag-answer-prompt: |
+  Answer only from the provided clinical-record context. If the answer is not in
+  the context, respond exactly: I don't know — this information is not available in the patient records.
