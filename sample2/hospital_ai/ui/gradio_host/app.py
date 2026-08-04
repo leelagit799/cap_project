@@ -52,7 +52,7 @@ def build_ui() -> gr.Blocks:
     configure_logging(settings.log_level, settings.reports_dir / "pipeline.log")
     service = DashboardService()
 
-    with gr.Blocks(title="DischargeFlow — Host Orchestrator", css=CSS, theme=gr.themes.Soft()) as ui:
+    with gr.Blocks(title="DischargeFlow — Host Orchestrator") as ui:
         gr.HTML(
             '<div id="df-hero"><h1>DischargeFlow — Host Orchestrator</h1>'
             "<p>Google ADK workflow controller · A2A client · "
@@ -246,7 +246,11 @@ def build_ui() -> gr.Blocks:
 def main() -> None:
     settings = get_settings()
     build_ui().launch(
-        server_name="0.0.0.0", server_port=settings.ports.host, show_api=False, quiet=True
+        server_name="0.0.0.0",
+        server_port=settings.ports.host,
+        quiet=True,
+        css=CSS,
+        theme=gr.themes.Soft(),
     )
 
 
