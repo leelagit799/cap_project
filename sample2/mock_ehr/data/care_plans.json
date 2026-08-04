@@ -1,0 +1,122 @@
+{
+  "P1001": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 14
+  },
+  "P1002": {
+    "followup_required": true,
+    "speciality": "Cardiology",
+    "window_days": 14
+  },
+  "P1003": {
+    "followup_required": true,
+    "speciality": "Cardiology",
+    "window_days": 7
+  },
+  "P1004": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 7
+  },
+  "P1005": {
+    "followup_required": true,
+    "speciality": "Pulmonology",
+    "window_days": 21
+  },
+  "P1006": {
+    "followup_required": true,
+    "speciality": "Gastroenterology",
+    "window_days": 21
+  },
+  "P1007": {
+    "followup_required": true,
+    "speciality": "Cardiology",
+    "window_days": 7
+  },
+  "P1008": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1009": {
+    "followup_required": true,
+    "speciality": "Pulmonology",
+    "window_days": 14
+  },
+  "P1010": {
+    "followup_required": true,
+    "speciality": "Pulmonology",
+    "window_days": 21
+  },
+  "P1011": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1012": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1013": {
+    "followup_required": true,
+    "speciality": "General Surgery",
+    "window_days": 14
+  },
+  "P1014": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1015": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1016": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1017": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1018": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 30
+  },
+  "P1019": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 30
+  },
+  "P1020": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 30
+  },
+  "P1021": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 30
+  },
+  "P1022": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  },
+  "P1023": {
+    "followup_required": true,
+    "speciality": "Endocrinology",
+    "window_days": 30
+  },
+  "P1024": {
+    "followup_required": true,
+    "speciality": "PCP",
+    "window_days": 14
+  }
+}

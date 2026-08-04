@@ -1,0 +1,252 @@
+{
+  "P1001": {
+    "patient_id": "P1001",
+    "patient_name": "Alice Johnson",
+    "dob": "1968-03-14",
+    "sex": "F",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1002": {
+    "patient_id": "P1002",
+    "patient_name": "Carlos Mendez",
+    "dob": "1955-09-21",
+    "sex": "M",
+    "primary_dx": [
+      "I50.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1003": {
+    "patient_id": "P1003",
+    "patient_name": "Sarah Williams",
+    "dob": "1959-11-02",
+    "sex": "F",
+    "primary_dx": [
+      "I21.9",
+      "I25.10",
+      "E11.9"
+    ],
+    "service_line": "Cardiology"
+  },
+  "P1004": {
+    "patient_id": "P1004",
+    "patient_name": "Raj Kumar",
+    "dob": "1981-07-29",
+    "sex": "M",
+    "primary_dx": [
+      "J18.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1005": {
+    "patient_id": "P1005",
+    "patient_name": "Emily Carter",
+    "dob": "1995-04-22",
+    "sex": "F",
+    "primary_dx": [
+      "J45.909"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1006": {
+    "patient_id": "P1006",
+    "patient_name": "John Doe",
+    "dob": "1972-01-19",
+    "sex": "M",
+    "primary_dx": [
+      "Z12.11",
+      "D50.9"
+    ],
+    "service_line": "Gastroenterology"
+  },
+  "P1007": {
+    "patient_id": "P1007",
+    "patient_name": "Maria Garcia",
+    "dob": "1962-04-11",
+    "sex": "F",
+    "primary_dx": [
+      "I50.9"
+    ],
+    "service_line": "Cardiology"
+  },
+  "P1008": {
+    "patient_id": "P1008",
+    "patient_name": "Li Wei",
+    "dob": "1975-12-30",
+    "sex": "M",
+    "primary_dx": [
+      "J20.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1009": {
+    "patient_id": "P1009",
+    "patient_name": "Amir Khan",
+    "dob": "1949-02-08",
+    "sex": "M",
+    "primary_dx": [
+      "J44.9"
+    ],
+    "service_line": "Pulmonology"
+  },
+  "P1010": {
+    "patient_id": "P1010",
+    "patient_name": "Olivia Brown",
+    "dob": "1990-08-17",
+    "sex": "F",
+    "primary_dx": [
+      "J45.909"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1011": {
+    "patient_id": "P1011",
+    "patient_name": "Sophia Martinez",
+    "dob": "1988-09-15",
+    "sex": "F",
+    "primary_dx": [
+      "J18.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1012": {
+    "patient_id": "P1012",
+    "patient_name": "David Chen",
+    "dob": "1992-06-03",
+    "sex": "M",
+    "primary_dx": [
+      "N39.0"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1013": {
+    "patient_id": "P1013",
+    "patient_name": "Michael Thompson",
+    "dob": "1985-02-11",
+    "sex": "M",
+    "primary_dx": [
+      "K35.80"
+    ],
+    "service_line": "General Surgery"
+  },
+  "P1014": {
+    "patient_id": "P1014",
+    "patient_name": "Lucía Fernández",
+    "dob": "1990-07-19",
+    "sex": "F",
+    "primary_dx": [
+      "K52.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1015": {
+    "patient_id": "P1015",
+    "patient_name": "Ananya Sharma",
+    "dob": "1996-11-30",
+    "sex": "F",
+    "primary_dx": [
+      "A01.0"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1016": {
+    "patient_id": "P1016",
+    "patient_name": "Lukas Müller",
+    "dob": "1978-04-05",
+    "sex": "M",
+    "primary_dx": [
+      "J18.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1017": {
+    "patient_id": "P1017",
+    "patient_name": "Camille Laurent",
+    "dob": "1983-09-23",
+    "sex": "F",
+    "primary_dx": [
+      "N10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1018": {
+    "patient_id": "P1018",
+    "patient_name": "Robert Anderson",
+    "dob": "1970-05-12",
+    "sex": "M",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1019": {
+    "patient_id": "P1019",
+    "patient_name": "Thomas Wright",
+    "dob": "1972-06-15",
+    "sex": "M",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1020": {
+    "patient_id": "P1020",
+    "patient_name": "Diego Morales",
+    "dob": "1968-02-10",
+    "sex": "M",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1021": {
+    "patient_id": "P1021",
+    "patient_name": "Rohan Gupta",
+    "dob": "1968-03-12",
+    "sex": "M",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1022": {
+    "patient_id": "P1022",
+    "patient_name": "Daan Bakker",
+    "dob": "1969-08-21",
+    "sex": "M",
+    "primary_dx": [
+      "J18.9"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1023": {
+    "patient_id": "P1023",
+    "patient_name": "Grace Bennett",
+    "dob": "1979-04-18",
+    "sex": "F",
+    "primary_dx": [
+      "E11.9",
+      "I10"
+    ],
+    "service_line": "General Medicine"
+  },
+  "P1024": {
+    "patient_id": "P1024",
+    "patient_name": "Bram de Vries",
+    "dob": "1971-03-05",
+    "sex": "M",
+    "primary_dx": [
+      "J18.9"
+    ],
+    "service_line": "General Medicine"
+  }
+}

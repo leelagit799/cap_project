@@ -1,0 +1,228 @@
+{
+  "P1001": [
+    {
+      "test": "HbA1c",
+      "value": "7.4 %",
+      "abnormal": true,
+      "action_in_ehr": "continue Metformin, recheck in 3 months"
+    },
+    {
+      "test": "LDL",
+      "value": "132 mg/dL",
+      "abnormal": true,
+      "action_in_ehr": "start Atorvastatin"
+    }
+  ],
+  "P1002": [
+    {
+      "test": "BNP",
+      "value": "612 pg/mL",
+      "abnormal": true,
+      "action_in_ehr": "continue diuretics, follow up in 2 weeks"
+    },
+    {
+      "test": "Sodium",
+      "value": "134 mmol/L",
+      "abnormal": true,
+      "action_in_ehr": "outpatient monitoring"
+    }
+  ],
+  "P1003": [
+    {
+      "test": "Troponin-I",
+      "value": "4.8 ng/mL",
+      "abnormal": true,
+      "action_in_ehr": "serial trended"
+    },
+    {
+      "test": "LDL",
+      "value": "168 mg/dL",
+      "abnormal": true,
+      "action_in_ehr": "high-intensity statin"
+    },
+    {
+      "test": "INR",
+      "value": "1.2",
+      "abnormal": true,
+      "action_in_ehr": "anticoagulation plan to be confirmed"
+    }
+  ],
+  "P1004": [
+    {
+      "test": "WBC",
+      "value": "14.2 x10^9/L",
+      "abnormal": true,
+      "action_in_ehr": "trending down with antibiotics"
+    },
+    {
+      "test": "CRP",
+      "value": "86 mg/L",
+      "abnormal": true,
+      "action_in_ehr": "trending down with antibiotics"
+    }
+  ],
+  "P1005": [
+    {
+      "test": "Peak flow",
+      "value": "Improved to baseline",
+      "abnormal": false,
+      "action_in_ehr": ""
+    }
+  ],
+  "P1006": [
+    {
+      "test": "Hemoglobin",
+      "value": "9.8 g/dL",
+      "abnormal": true,
+      "action_in_ehr": "oral iron, recheck in 6 weeks"
+    }
+  ],
+  "P1007": [
+    {
+      "test": "BNP",
+      "value": "845 pg/mL",
+      "abnormal": true,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "Potassium",
+      "value": "3.2 mmol/L",
+      "abnormal": true,
+      "action_in_ehr": "oral KCl 20 mEq/day"
+    }
+  ],
+  "P1008": [],
+  "P1009": [
+    {
+      "test": "SpO2",
+      "value": "88 % RA",
+      "abnormal": true,
+      "action_in_ehr": "home oxygen"
+    },
+    {
+      "test": "WBC",
+      "value": "12.5 x10^9",
+      "abnormal": true,
+      "action_in_ehr": "antibiotic review"
+    }
+  ],
+  "P1010": [],
+  "P1011": [
+    {
+      "test": "WBC",
+      "value": "12.8 x10^9/L",
+      "abnormal": true,
+      "action_in_ehr": "trending down with antibiotics; recheck in 1 week"
+    },
+    {
+      "test": "CRP",
+      "value": "62 mg/L",
+      "abnormal": true,
+      "action_in_ehr": "trending down with antibiotics"
+    }
+  ],
+  "P1012": [
+    {
+      "test": "Urinalysis",
+      "value": "positive nitrites",
+      "abnormal": true,
+      "action_in_ehr": "antibiotic course completed"
+    }
+  ],
+  "P1013": [],
+  "P1014": [],
+  "P1015": [],
+  "P1016": [],
+  "P1017": [],
+  "P1018": [
+    {
+      "test": "HbA1c",
+      "value": "7.1 %",
+      "abnormal": true,
+      "action_in_ehr": "continue Metformin, recheck in 3 months"
+    },
+    {
+      "test": "LDL",
+      "value": "128 mg/dL",
+      "abnormal": true,
+      "action_in_ehr": "continue statin"
+    }
+  ],
+  "P1019": [
+    {
+      "test": "HbA1c",
+      "value": "6.9 %",
+      "abnormal": true,
+      "action_in_ehr": "continue Metformin, recheck in 3 months"
+    },
+    {
+      "test": "LDL",
+      "value": "118 mg/dL",
+      "abnormal": true,
+      "action_in_ehr": "continue statin"
+    }
+  ],
+  "P1020": [],
+  "P1021": [
+    {
+      "test": "HbA1c",
+      "value": "6.4 %",
+      "abnormal": false,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "LDL",
+      "value": "96 mg/dL",
+      "abnormal": false,
+      "action_in_ehr": ""
+    }
+  ],
+  "P1022": [
+    {
+      "test": "CRP",
+      "value": "42 mg/L",
+      "abnormal": false,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "Leukocytes",
+      "value": "9.4 x10^9/L",
+      "abnormal": false,
+      "action_in_ehr": ""
+    }
+  ],
+  "P1023": [
+    {
+      "test": "HbA1c",
+      "value": "5.4 %",
+      "abnormal": false,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "LDL",
+      "value": "92 mg/dL",
+      "abnormal": false,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "Fasting Glucose",
+      "value": "94 mg/dL",
+      "abnormal": false,
+      "action_in_ehr": ""
+    }
+  ],
+  "P1024": [
+    {
+      "test": "CRP",
+      "value": "38 mg/L",
+      "abnormal": false,
+      "action_in_ehr": ""
+    },
+    {
+      "test": "Leukocytes",
+      "value": "8.9 x10^9/L",
+      "abnormal": false,
+      "action_in_ehr": ""
+    }
+  ]
+}

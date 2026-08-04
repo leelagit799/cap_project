@@ -1,0 +1,425 @@
+{
+  "P1001": [
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1002": [
+    {
+      "name": "Furosemide",
+      "dose": "40 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "5 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Metoprolol",
+      "dose": "25 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1003": [
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Clopidogrel",
+      "dose": "75 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "80 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Metoprolol",
+      "dose": "50 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    }
+  ],
+  "P1004": [
+    {
+      "name": "Levofloxacin",
+      "dose": "750 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    },
+    {
+      "name": "Guaifenesin",
+      "dose": "400 mg",
+      "frequency": "q4h PRN"
+    }
+  ],
+  "P1005": [
+    {
+      "name": "Albuterol HFA",
+      "dose": "2 puffs",
+      "frequency": "q4h PRN"
+    },
+    {
+      "name": "Fluticasone HFA",
+      "dose": "110 mcg 2 puffs",
+      "frequency": "BID"
+    },
+    {
+      "name": "Prednisone",
+      "dose": "40 mg",
+      "frequency": "QD x 5 days"
+    }
+  ],
+  "P1006": [
+    {
+      "name": "Pantoprazole",
+      "dose": "40 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Ferrous sulfate",
+      "dose": "325 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1007": [
+    {
+      "name": "Furosemide",
+      "dose": "40 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Carvedilol",
+      "dose": "6.25 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "5 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1008": [
+    {
+      "name": "Azithromycin",
+      "dose": "500 mg",
+      "frequency": "QD x 3 days"
+    },
+    {
+      "name": "Albuterol HFA",
+      "dose": "2 puffs",
+      "frequency": "q4h PRN"
+    }
+  ],
+  "P1009": [
+    {
+      "name": "Tiotropium",
+      "dose": "18 mcg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Salbutamol",
+      "dose": "2 puffs",
+      "frequency": "q4h PRN"
+    },
+    {
+      "name": "Prednisone",
+      "dose": "40 mg",
+      "frequency": "QD x 5 days"
+    }
+  ],
+  "P1010": [
+    {
+      "name": "Albuterol HFA",
+      "dose": "2 puffs",
+      "frequency": "q4h PRN"
+    },
+    {
+      "name": "Fluticasone HFA",
+      "dose": "110 mcg 2 puffs",
+      "frequency": "BID"
+    },
+    {
+      "name": "Prednisone",
+      "dose": "40 mg",
+      "frequency": "QD x 5 days"
+    }
+  ],
+  "P1011": [
+    {
+      "name": "Amoxicillin",
+      "dose": "875 mg",
+      "frequency": "BID x 7 days"
+    },
+    {
+      "name": "Azithromycin",
+      "dose": "500 mg",
+      "frequency": "QD x 5 days"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1012": [
+    {
+      "name": "Nitrofurantoin",
+      "dose": "100 mg",
+      "frequency": "BID x 5 days"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1013": [
+    {
+      "name": "Cefazolin",
+      "dose": "1 g",
+      "frequency": "q8h x 2 days"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    },
+    {
+      "name": "Ondansetron",
+      "dose": "4 mg",
+      "frequency": "q8h PRN"
+    }
+  ],
+  "P1014": [
+    {
+      "name": "Ondansetron",
+      "dose": "4 mg",
+      "frequency": "q8h PRN"
+    },
+    {
+      "name": "Loperamide",
+      "dose": "2 mg",
+      "frequency": "after each loose stool"
+    },
+    {
+      "name": "Hyoscine",
+      "dose": "10 mg",
+      "frequency": "TID PRN cramps"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1015": [
+    {
+      "name": "Azithromycin",
+      "dose": "500 mg",
+      "frequency": "QD x 7 days"
+    },
+    {
+      "name": "Paracetamol",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1016": [
+    {
+      "name": "Amoxicillin",
+      "dose": "500 mg",
+      "frequency": "TID x 7 days"
+    },
+    {
+      "name": "Paracetamol",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1017": [
+    {
+      "name": "Ciprofloxacin",
+      "dose": "500 mg",
+      "frequency": "BID x 7 days"
+    },
+    {
+      "name": "Acetaminophen",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    },
+    {
+      "name": "Nitrofurantoin",
+      "dose": "100 mg",
+      "frequency": "BID x 5 days"
+    }
+  ],
+  "P1018": [
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1019": [
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1020": [
+    {
+      "name": "Metformina",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatina",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Aspirina",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1021": [
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Amlodipine",
+      "dose": "5 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    }
+  ],
+  "P1022": [
+    {
+      "name": "Amoxicillin",
+      "dose": "500 mg",
+      "frequency": "TID x 7 days"
+    },
+    {
+      "name": "Paracetamol",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ],
+  "P1023": [
+    {
+      "name": "Metformin",
+      "dose": "500 mg",
+      "frequency": "BID"
+    },
+    {
+      "name": "Lisinopril",
+      "dose": "10 mg",
+      "frequency": "QD"
+    },
+    {
+      "name": "Atorvastatin",
+      "dose": "20 mg",
+      "frequency": "QHS"
+    },
+    {
+      "name": "Aspirin",
+      "dose": "81 mg",
+      "frequency": "QD"
+    }
+  ],
+  "P1024": [
+    {
+      "name": "Amoxicillin",
+      "dose": "500 mg",
+      "frequency": "TID x 7 days"
+    },
+    {
+      "name": "Paracetamol",
+      "dose": "500 mg",
+      "frequency": "q6h PRN"
+    }
+  ]
+}
