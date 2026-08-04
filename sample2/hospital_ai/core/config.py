@@ -88,6 +88,10 @@ class LLMSettings:
     offline: bool = False
     request_timeout_s: int = 60
     max_output_tokens: int = 2048
+    #: ModelPreferences hints the Medical Lang Bridge Tool advertises to
+    #: sampling clients (doc §2.3).
+    sampling_hint_non_english: str = "nova-lite"
+    sampling_hint_english: str = "command-r-plus"
 
     @property
     def credentials_present(self) -> bool:
@@ -189,6 +193,7 @@ def get_settings() -> Settings:
     ports = Ports(**{**Ports().__dict__, **(agent_cfg.get("ports") or {})})
 
     llm_cfg = agent_cfg.get("llm") or {}
+    hints = llm_cfg.get("sampling_hints") or {}
     llm = LLMSettings(
         primary_model=os.getenv("BEDROCK_PRIMARY_MODEL")
         or llm_cfg.get("primary_model")
@@ -200,6 +205,8 @@ def get_settings() -> Settings:
         aws_region=os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
         cohere_api_key=os.getenv("COHERE_API_KEY") or None,
         offline=_env_bool("LLM_OFFLINE", default=False),
+        sampling_hint_non_english=hints.get("non_english", "nova-lite"),
+        sampling_hint_english=hints.get("english", "command-r-plus"),
     )
 
     langfuse = LangfuseSettings(

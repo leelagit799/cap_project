@@ -1,15 +1,94 @@
+# =============================================================================
+#  prompts.yaml — templates served by the Primary MCP Server as MCP Prompts
+# =============================================================================
+#  Doc Table 2 fixes the prompt names and their parameters. Agents fetch these
+#  through get_prompt() at runtime; no agent may hardcode a prompt string.
+#
+#  Placeholders use {curly_braces} and are substituted by the MCP prompt
+#  handler in hospital_ai/mcp_servers/primary/prompts.py.
+# =============================================================================
+
+# Parameters: language, doc_types  ·  Used by: Clinical Extractor Agent
 discharge-extraction-prompt: |
-  Extract patient demographics, diagnosis, allergies, prescriptions, follow-up,
-  approval state, laboratory follow-up and bill information. Preserve source facts.
+  You are a clinical data extraction specialist.
+
+  Source language: {language}
+  Document types in this packet: {doc_types}
+
+  Extract every field present in the source documents:
+    - Demographics: patient_id, patient_name, age, gender, address
+    - Admission: admission_date, discharge_date, ward, bed_no, service_line
+    - Care team: attending physician, consulting doctors
+    - Clinical: discharge diagnosis with ICD-10 codes, allergies / ADR info
+    - Prescriptions: sl_no, medicine_name, strength, dosage, frequency, route,
+      period, remarks, total_quantity — one row per medication
+    - Follow-up appointments and discharge instructions
+    - Approval: discharge_approved_by, discharge_approved
+    - Labs: test, value, unit, reference range, normal/abnormal indicator
+    - Bill: line items, subtotal, tax, total amount, payment status
+
+  Rules:
+    - Preserve source facts exactly. Never infer, complete or correct a value.
+    - Leave a field null when the document does not state it; a missing field
+      is a finding for the validator, not something to fill in.
+    - Keep the original language here. Translation happens downstream.
+
+# Parameters: patient_id  ·  Used by: Clinical Validation Agent
 ehr-cross-validation-prompt: |
-  Compare the extracted discharge record for {patient_id} with the EHR. Report
-  only factual differences and cite the applicable rule.
+  Compare the extracted discharge record for patient {patient_id} against the
+  Mock EHR record supplied in the context.
+
+  Check and report, citing the applicable rule id for each difference:
+    - med_omission_check — discharge medications versus EHR medication history
+    - allergy_contradiction_check — any prescribed drug conflicting with a
+      documented allergy
+    - diagnosis_mismatch_check — discharge diagnosis versus the EHR care plan
+    - follow_up_missing_check — follow-up documented as the care plan requires
+    - lab_follow_up_mismatch_check — abnormal labs with no documented action
+    - discharge_approval_check — discharge approved by the treating physician
+    - bill_settlement_check — bill PAID or covered by an insurance guarantee
+
+  Report only factual differences supported by the supplied data. Do not
+  speculate about clinical intent and do not recommend treatment.
+
+# Parameters: source_language  ·  Used by: Clinical Normalizer Agent
 abbreviation-normalization-prompt: |
-  Translate the {source_language} clinical record to plain English and expand
-  medical abbreviations without changing clinical meaning.
+  Translate the following clinical record from {source_language} into plain
+  English and expand every medical abbreviation.
+
+  Requirements:
+    - Preserve clinical meaning exactly. Never add, drop or reinterpret a fact.
+    - Expand abbreviations using the supplied dictionary: BID -> twice daily,
+      QD -> once daily, PRN -> as needed, PO -> by mouth, and so on.
+    - Keep drug names, strengths, numbers, dates and units unchanged.
+    - Return the translated record in the same structure as the input.
+
+# Parameters: risk_level, audience  ·  Used by: Summary Generator Agent
 summary-generation-prompt: |
-  Create a calm, patient-friendly discharge summary for a {risk_level} risk case.
-  Use plain English and never invent clinical advice.
+  Write a calm, patient-friendly discharge summary for a {risk_level} risk case.
+  Audience: {audience}.
+
+  Cover these sections in order:
+    1. Patient — who this summary is for and why they were admitted
+    2. Medications — what to take, how much, how often, for how long
+    3. Lab results — what was measured and what it means in plain words
+    4. Bill — the amount and whether it has been settled
+    5. Instructions — follow-up appointments, self-care and warning signs
+
+  Rules:
+    - Use plain English at roughly an eighth-grade reading level.
+    - State only what the clinical record contains. Never invent clinical
+      advice, dosages, dates or reassurance.
+    - Do not diagnose, and do not contradict the discharging clinician.
+
+# Parameters: context_length  ·  Used by: Agno RAG Generation Agent
 rag-answer-prompt: |
-  Answer only from the provided clinical-record context. If the answer is not in
-  the context, respond exactly: I don't know — this information is not available in the patient records.
+  Answer the question using only the provided clinical-record context
+  ({context_length} characters of retrieved material).
+
+  Rules:
+    - Ground every statement in the context. Cite the document it came from.
+    - If the answer is not present in the context, respond with exactly:
+      I don't know — this information is not available in the patient records.
+    - Never use outside medical knowledge to fill a gap.
+    - Do not provide medical advice; report only what the records state.
