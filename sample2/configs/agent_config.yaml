@@ -1,4 +1,17 @@
+# =============================================================================
+#  agent_config.yaml — service topology and runtime settings
+# =============================================================================
+#  Secrets are NEVER stored here. AGENT_AUTH_TOKEN, AWS and LangFuse
+#  credentials are read from the environment (see .env.example).
+# =============================================================================
+
+# Placeholder only. The loader rejects this value and requires the real shared
+# secret to come from the AGENT_AUTH_TOKEN environment variable.
 agent_auth_token: change-this-for-production
+
+# -----------------------------------------------------------------------------
+# Service port map — doc Table 15
+# -----------------------------------------------------------------------------
 ports:
   ehr: 8050
   extractor: 8100
@@ -11,7 +24,53 @@ ports:
   primary_mcp: 8200
   analytics_mcp: 8201
   dashboard: 8501
+
+# -----------------------------------------------------------------------------
+# MCP transport paths — doc Table 8
+# -----------------------------------------------------------------------------
+mcp:
+  primary_path: /clinicaltools
+  analytics_path: /analyticstools
+  transport: streamable-http
+
+# -----------------------------------------------------------------------------
+# MCP Roots workspace — doc §2.1
+# -----------------------------------------------------------------------------
+# The Discharge Monitor Agent registers `workspace` as a Root URI. The Clinical
+# Watcher Tool discovers it via ctx.list_roots(); raw paths are never passed as
+# tool parameters, and Path.relative_to() rejects anything outside it.
+#
+# layout: `by_doctype`  -> Data/incoming/{doctor_reports,lab_reports,bills}/P1019_*.txt
+#         `by_patient`  -> Data/incoming/P1019/{discharge,labs,bill}.*
+roots:
+  workspace: Data/incoming
+  layout: by_doctype
+  doctype_dirs:
+    discharge_report: doctor_reports
+    lab_report: lab_reports
+    bill: bills
+
+# -----------------------------------------------------------------------------
+# LLM routing — doc Table 14
+# -----------------------------------------------------------------------------
+# Nova Lite is the primary (multilingual) model; Command R+ is the English
+# fallback. Both are reached through LiteLLM. Model ids may be overridden by
+# BEDROCK_PRIMARY_MODEL / BEDROCK_FALLBACK_MODEL.
 llm:
-  primary: bedrock/nova-lite-v1
-  english_fallback: cohere/command-r-plus
+  primary_model: bedrock/amazon.nova-lite-v1:0
+  fallback_model: bedrock/cohere.command-r-plus-v1:0
   embedding: sentence-transformers/all-MiniLM-L6-v2
+  # MCP Sampling ModelPreferences hints advertised by the Medical Lang Bridge Tool
+  sampling_hints:
+    non_english: nova-lite
+    english: command-r-plus
+
+# -----------------------------------------------------------------------------
+# Resilience
+# -----------------------------------------------------------------------------
+resilience:
+  max_attempts: 3
+  backoff_base_s: 1.0
+  backoff_max_s: 8.0
+  request_timeout_s: 60
+  circuit_breaker_threshold: 5
