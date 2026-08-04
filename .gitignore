@@ -6,13 +6,13 @@
 *.key
 credentials.json
 
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
+# Python virtual environments — NEVER commit these.
+# Windows creates .venv/Scripts/ ; Linux/Mac creates .venv/bin/
 .venv/
 venv/
-.pytest_cache/
+**/.venv/
+**/venv/
+sample2/.venv/
 .mypy_cache/
 .ruff_cache/
 

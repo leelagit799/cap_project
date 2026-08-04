@@ -4,14 +4,40 @@ End-to-end implementation of the **FA5 SP Interns Capstone: AI Discharge Summari
 
 ## Quick start
 
-Python 3.11+ is required.
+Python 3.11+ is required. The `.venv` folder is created **on your machine only** — it is never committed to GitHub (Windows uses `.venv/Scripts/`, Linux/Mac uses `.venv/bin/`).
+
+### Windows (VS Code / PowerShell)
+
+```powershell
+cd sample2
+.\scripts\setup.ps1
+.\.venv\Scripts\Activate.ps1
+python run.py
+```
+
+### Linux / Mac
 
 ```bash
 cd sample2
-python3 -m venv .venv
+bash scripts/setup.sh
 source .venv/bin/activate
+python run.py
+```
+
+### Manual setup (any OS)
+
+```bash
+cd sample2
+python -m venv .venv
+
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# Linux / Mac
+source .venv/bin/activate
+
 pip install -r requirements.txt
-cp .env.example .env   # fill in AWS Bedrock + LangFuse keys for live inference
+cp .env.example .env    # Windows: copy .env.example .env
 python run.py
 ```
 
