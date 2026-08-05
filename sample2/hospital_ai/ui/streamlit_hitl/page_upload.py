@@ -1,8 +1,6 @@
-"""Patient Upload page — dynamic document ingestion UI."""
+"""Patient Upload page — register patients and store documents only."""
 
 from __future__ import annotations
-
-from typing import Any
 
 import streamlit as st
 
@@ -38,30 +36,42 @@ def upload_service() -> UploadService:
 def _init_state() -> None:
     if "upload_patient_id" not in st.session_state:
         st.session_state.upload_patient_id = None
+    if "upload_success_patient" not in st.session_state:
+        st.session_state.upload_success_patient = None
 
 
-def page_upload(svc: DashboardService) -> None:
+def page_upload(_svc: DashboardService) -> None:
+    """Register patients and upload files — does not start AI processing."""
     _init_state()
-    svc = upload_service()
+    upload_svc = upload_service()
 
     st.markdown(
         theme.masthead(
             "Patient Upload",
-            "Register a new patient, upload discharge documents, and start the existing workflow.",
+            "Register a new patient and upload discharge documents for later processing.",
             "Upload workspace",
         ),
         unsafe_allow_html=True,
     )
 
+    if st.session_state.upload_success_patient:
+        st.markdown(
+            '<div class="df-banner clear">✅ Patient successfully added. '
+            f'Open <strong>Document Viewer</strong> to process '
+            f'<strong>{st.session_state.upload_success_patient}</strong>.</div>',
+            unsafe_allow_html=True,
+        )
+
     top_left, top_right = st.columns([2, 1])
     with top_left:
         if st.button("➕ New patient", type="primary", use_container_width=False):
-            created = svc.create_patient()
+            created = upload_svc.create_patient()
             st.session_state.upload_patient_id = created["patient_id"]
+            st.session_state.upload_success_patient = None
             st.toast(f"Allocated {created['patient_id']}", icon="🆔")
             st.rerun()
 
-    patients = svc.list_patients()
+    patients = upload_svc.list_patients()
     patient_ids = [row["patient_id"] for row in patients]
     if patient_ids:
         with top_right:
@@ -94,7 +104,7 @@ def page_upload(svc: DashboardService) -> None:
             )
         return
 
-    detail = svc.get_patient(patient_id)
+    detail = upload_svc.get_patient(patient_id)
     if detail is None:
         st.error("Patient record not found.")
         return
@@ -115,6 +125,9 @@ def page_upload(svc: DashboardService) -> None:
         ),
         unsafe_allow_html=True,
     )
+
+    if detail["complete"]:
+        st.session_state.upload_success_patient = patient_id
 
     doctor_name = st.text_input(
         "Attending physician name (for doctor report filename)",
@@ -149,7 +162,7 @@ def page_upload(svc: DashboardService) -> None:
                     progress = st.progress(0, text="Uploading…")
                     try:
                         progress.progress(35, text="Validating file…")
-                        svc.upload_document(
+                        upload_svc.upload_document(
                             patient_id,
                             doc_type,
                             uploaded.name,
@@ -182,48 +195,12 @@ def page_upload(svc: DashboardService) -> None:
                 )
             with row_right:
                 if st.button("Delete", key=f"del-{patient_id}-{doc['filename']}"):
-                    svc.delete_document(patient_id, doc["filename"])
+                    upload_svc.delete_document(patient_id, doc["filename"])
+                    st.session_state.upload_success_patient = None
                     st.toast("Document deleted", icon="🗑️")
                     st.rerun()
 
-    st.divider()
-    process_left, process_right = st.columns([3, 1])
-    with process_right:
-        disabled = not detail["complete"]
-        if st.button(
-            "▶ Process patient",
-            type="primary",
-            disabled=disabled,
-            use_container_width=True,
-        ):
-            progress = st.progress(0, text="Starting workflow…")
-            try:
-                progress.progress(20, text="Discovering documents…")
-                progress.progress(45, text="Extracting & validating…")
-                outcome = svc.process_patient(patient_id)
-                progress.progress(100, text="Complete")
-                if outcome.get("requires_hitl"):
-                    st.error(
-                        f"Case **{outcome['case_id']}** scored **{outcome.get('risk_level')}** "
-                        "and needs human review. Open Validation Report."
-                    )
-                else:
-                    st.success(
-                        f"Case **{outcome['case_id']}** cleared at **{outcome.get('risk_level')}** risk."
-                    )
-                st.toast("Workflow finished", icon="✅")
-            except DischargeFlowError as exc:
-                progress.empty()
-                st.error(str(exc))
-            except Exception as exc:  # noqa: BLE001 - show orchestrator errors in UI
-                progress.empty()
-                st.error(f"Processing failed: {exc}")
-
-    with process_left:
-        if disabled:
-            st.caption("Upload doctor report, lab report, and hospital bill to enable processing.")
-        else:
-            st.caption(
-                "Processing uses the existing Host Orchestrator pipeline — "
-                "Monitor → Extractor → Normalizer → Validator → Reporter → RAG."
-            )
+    st.caption(
+        "When all three documents are uploaded, go to **Document Viewer** and click "
+        "**Process Patient** to start the AI workflow."
+    )

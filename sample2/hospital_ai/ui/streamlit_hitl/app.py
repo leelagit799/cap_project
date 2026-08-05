@@ -28,6 +28,16 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.ui.service import DashboardService, elicitation_log, set_elicitation_answers
 from hospital_ai.ui.streamlit_hitl import theme
 from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
+from hospital_ai.ui.streamlit_hitl.session_context import (
+    activate_from_outcome,
+    clear_active_context,
+    get_active_context,
+    pending_process_patient,
+    refresh_active_from_case,
+    render_active_panel,
+    require_active_case,
+    set_pending_process,
+)
 
 st.set_page_config(
     page_title="DischargeFlow — Clinical Review",
@@ -61,19 +71,46 @@ def card(title: str, body: str) -> None:
     st.markdown(f'<div class="df-card"><h3>{title}</h3>{body}</div>', unsafe_allow_html=True)
 
 
-def pick_case(svc: DashboardService, key: str) -> dict[str, Any] | None:
-    """Case selector shared by the pages that operate on one case."""
-    cases = svc.cases()
-    if not cases:
-        st.info("No cases have been processed yet. Start one on the Document Viewer page.")
-        return None
+def _resolve_patient_name(patient_id: str) -> str:
+    try:
+        from hospital_ai.ingest.service import UploadService
 
-    labels = {
-        f"{c['patient_id']} · {c['status']} · {c.get('risk_level') or 'unscored'}": c["case_id"]
-        for c in cases
-    }
-    chosen = st.selectbox("Case", list(labels), key=key)
-    return svc.case(labels[chosen])
+        detail = UploadService().get_patient(patient_id)
+        if detail and detail.get("doctor_name"):
+            return detail["doctor_name"]
+    except Exception:  # noqa: BLE001 - optional ingest metadata
+        pass
+    return patient_id
+
+
+def _execute_process(svc: DashboardService, patient_id: str) -> None:
+    """Run the Host Orchestrator workflow and bind the active session context."""
+    patient_name = _resolve_patient_name(patient_id)
+    placeholder = st.empty()
+    placeholder.markdown(
+        f'<div class="df-card">{theme.skeleton(4)}</div>', unsafe_allow_html=True
+    )
+    with st.spinner("Running extraction, normalization, validation and reporting…"):
+        outcome = svc.process_patient(patient_id)
+    placeholder.empty()
+
+    record = svc.record(outcome["case_id"]) or {}
+    discharge = record.get("discharge_report") or {}
+    if discharge.get("patient_name"):
+        patient_name = discharge["patient_name"]
+
+    activate_from_outcome(outcome, patient_name=patient_name)
+
+    if outcome["requires_hitl"]:
+        st.error(
+            f"Case {outcome['case_id']} scored **{outcome['risk_level']}** "
+            "and needs human review. Open **Validation Report**."
+        )
+    else:
+        st.success(
+            f"Case {outcome['case_id']} cleared at **{outcome['risk_level']}** risk."
+        )
+    st.toast("Processing complete — active case set", icon="✅")
 
 
 def render_sidebar(svc: DashboardService) -> str:
@@ -81,6 +118,17 @@ def render_sidebar(svc: DashboardService) -> str:
         st.markdown("### 🏥 DischargeFlow")
         st.caption("St. Marian Regional Medical Center")
         page = st.radio("Workspace", list(PAGES), label_visibility="collapsed")
+
+        st.divider()
+        active = get_active_context()
+        if active:
+            st.markdown("**Active case**")
+            st.caption(
+                f"{active.get('patient_id')} · {active.get('case_id', '')[:20]}…\n\n"
+                f"Status: {active.get('workflow_status')}"
+            )
+        else:
+            st.caption("No active processing session.")
 
         st.divider()
         stats = svc.stats()
@@ -148,25 +196,40 @@ def page_documents(svc: DashboardService) -> None:
 
     with right:
         st.write("")
-        if st.button("▶ Process this patient", type="primary", use_container_width=True):
-            placeholder = st.empty()
-            placeholder.markdown(
-                f'<div class="df-card">{theme.skeleton(4)}</div>', unsafe_allow_html=True
-            )
-            with st.spinner("Running extraction, normalization, validation and reporting…"):
-                outcome = svc.process_patient(patient_id)
-            placeholder.empty()
-
-            if outcome["requires_hitl"]:
-                st.error(
-                    f"Case {outcome['case_id']} scored **{outcome['risk_level']}** "
-                    f"and needs human review."
-                )
+        process_disabled = not entry["complete"]
+        if st.button(
+            "▶ Process Patient",
+            type="primary",
+            use_container_width=True,
+            disabled=process_disabled,
+        ):
+            active = get_active_context()
+            if active and active.get("patient_id") != patient_id:
+                set_pending_process(patient_id)
             else:
-                st.success(
-                    f"Case {outcome['case_id']} cleared at **{outcome['risk_level']}** risk."
-                )
-            st.toast("Case processed", icon="✅")
+                _execute_process(svc, patient_id)
+
+    pending = pending_process_patient()
+    if pending == patient_id:
+        active = get_active_context()
+        st.warning(
+            "A patient case is currently being processed. Starting a new case will end "
+            f"the current workflow for **{active.get('patient_id')}** "
+            f"({active.get('case_id')}). Do you want to continue?"
+        )
+        confirm_left, confirm_right = st.columns(2)
+        with confirm_left:
+            if st.button("Yes, start new case", type="primary", key="confirm-new-case"):
+                clear_active_context()
+                set_pending_process(None)
+                _execute_process(svc, patient_id)
+        with confirm_right:
+            if st.button("Cancel", key="cancel-new-case"):
+                set_pending_process(None)
+                st.rerun()
+
+    if process_disabled:
+        st.caption("Upload doctor report, lab report, and hospital bill before processing.")
 
     completeness = "complete" if entry["complete"] else "incomplete"
     pills = "".join(f'<span class="df-pill">{t}</span>' for t in entry["doc_types"])
@@ -231,9 +294,11 @@ def page_validation(svc: DashboardService) -> None:
         unsafe_allow_html=True,
     )
 
-    case = pick_case(svc, "validation-case")
+    case = require_active_case(svc)
     if case is None:
         return
+
+    render_active_panel()
 
     validation = svc.validation(case["case_id"])
     if validation is None:
@@ -349,9 +414,11 @@ def page_corrections(svc: DashboardService) -> None:
         unsafe_allow_html=True,
     )
 
-    case = pick_case(svc, "corrections-case")
+    case = require_active_case(svc)
     if case is None:
         return
+
+    render_active_panel()
 
     record = svc.record(case["case_id"])
     if record is None:
@@ -463,6 +530,7 @@ def page_corrections(svc: DashboardService) -> None:
         if st.button("🔄 Re-run validation", type="primary", use_container_width=True):
             with st.spinner("Applying corrections and re-validating…"):
                 outcome = svc.revalidate(case["case_id"], corrections or None)
+            refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Validation re-run", icon="🔄")
             if outcome["requires_hitl"]:
                 st.error(
@@ -524,14 +592,18 @@ def page_rag(svc: DashboardService) -> None:
     )
 
     cases = svc.cases()
+    active = get_active_context()
     patients = sorted({c["patient_id"] for c in cases})
     if not patients:
-        st.info("No cases indexed yet. Process a patient first.")
+        st.info("No cases indexed yet. Process a patient from Document Viewer first.")
         return
 
+    default_patient = active["patient_id"] if active and active["patient_id"] in patients else "All patients"
     left, right = st.columns([1, 3])
     with left:
-        patient_filter = st.selectbox("Patient filter", ["All patients", *patients])
+        options = ["All patients", *patients]
+        default_index = options.index(default_patient) if default_patient in options else 0
+        patient_filter = st.selectbox("Patient filter", options, index=default_index)
     patient_id = None if patient_filter == "All patients" else patient_filter
 
     st.markdown("**Example questions**")
@@ -617,9 +689,11 @@ def page_summary(svc: DashboardService) -> None:
         unsafe_allow_html=True,
     )
 
-    case = pick_case(svc, "summary-case")
+    case = require_active_case(svc)
     if case is None:
         return
+
+    render_active_panel()
 
     if case.get("discharge_blocked"):
         st.markdown(
