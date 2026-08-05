@@ -71,6 +71,77 @@ class TestRegistry:
 
 
 class TestUploadService:
+    def test_batch_save_all_documents(self, upload_env):
+        upload_dir, state_dir = upload_env
+        service = UploadService(PatientUploadRegistry(state_dir / "batch.sqlite"))
+        patient_id = service.create_patient(doctor_name="Dr Patel")["patient_id"]
+
+        result = service.save_patient_documents(
+            {
+                "discharge_report": ("notes.pdf", b"%PDF-1.4"),
+                "lab_report": ("labs.png", b"\x89PNG\r\n"),
+                "bill": ("bill.json", b'{"total": 1}'),
+            },
+            patient_id=patient_id,
+            doctor_name="Dr Patel",
+        )
+
+        assert result["patient_id"] == patient_id
+        assert result["complete"] is True
+        folder = upload_dir / patient_id
+        assert (folder / f"{patient_id}_DrPatel.pdf").is_file()
+        assert (folder / f"{patient_id}_labs.png").is_file()
+        assert (folder / f"{patient_id}_bill.json").is_file()
+
+    def test_batch_save_allocates_patient_id_when_missing(self, upload_env):
+        upload_dir, state_dir = upload_env
+        service = UploadService(PatientUploadRegistry(state_dir / "alloc.sqlite"))
+
+        result = service.save_patient_documents(
+            {
+                "discharge_report": ("notes.pdf", b"%PDF-1.4"),
+                "lab_report": ("labs.png", b"\x89PNG\r\n"),
+                "bill": ("bill.json", b'{"total": 1}'),
+            },
+            doctor_name="Dr Lee",
+        )
+
+        patient_id = result["patient_id"]
+        assert patient_id.startswith("P")
+        assert (upload_dir / patient_id).is_dir()
+
+    def test_batch_save_rejects_incomplete_packet(self, upload_env):
+        _, state_dir = upload_env
+        service = UploadService(PatientUploadRegistry(state_dir / "incomplete.sqlite"))
+        patient_id = service.create_patient()["patient_id"]
+        with pytest.raises(DischargeFlowError):
+            service.save_patient_documents(
+                {
+                    "discharge_report": ("notes.pdf", b"%PDF"),
+                    "lab_report": ("labs.png", b"\x89PNG"),
+                },
+                patient_id=patient_id,
+            )
+
+    def test_batch_save_rolls_back_on_validation_error(self, upload_env):
+        upload_dir, state_dir = upload_env
+        service = UploadService(PatientUploadRegistry(state_dir / "rollback.sqlite"))
+        patient_id = service.create_patient()["patient_id"]
+
+        with pytest.raises(DischargeFlowError):
+            service.save_patient_documents(
+                {
+                    "discharge_report": ("notes.pdf", b"%PDF"),
+                    "lab_report": ("labs.png", b"\x89PNG"),
+                    "bill": ("bill.docx", b"bad"),
+                },
+                patient_id=patient_id,
+            )
+
+        folder = upload_dir / patient_id
+        saved = list(folder.glob(f"{patient_id}_*")) if folder.is_dir() else []
+        assert not saved
+
     def test_upload_rename_and_process_gate(self, upload_env):
         upload_dir, state_dir = upload_env
         service = UploadService(PatientUploadRegistry(state_dir / "svc.sqlite"))

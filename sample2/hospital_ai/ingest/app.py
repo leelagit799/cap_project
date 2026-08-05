@@ -16,6 +16,7 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.core.errors import DischargeFlowError
 from hospital_ai.core.logging import configure_logging, get_logger
 from hospital_ai.ingest.models import (
+    BatchSaveResult,
     DocType,
     PatientCreated,
     PatientDetail,
@@ -73,6 +74,44 @@ def create_app() -> FastAPI:
         if detail is None:
             raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")
         return PatientDetail(**detail)
+
+    @app.post("/patients/save-documents", response_model=BatchSaveResult)
+    async def save_patient_documents(
+        discharge_report: UploadFile = File(...),
+        lab_report: UploadFile = File(...),
+        bill: UploadFile = File(...),
+        patient_id: str | None = None,
+        doctor_name: str | None = None,
+        service: UploadService = Depends(get_upload_service),
+    ) -> BatchSaveResult:
+        documents: dict[DocType, tuple[str, bytes]] = {
+            "discharge_report": (
+                discharge_report.filename or "discharge_report.bin",
+                await discharge_report.read(),
+            ),
+            "lab_report": (
+                lab_report.filename or "lab_report.bin",
+                await lab_report.read(),
+            ),
+            "bill": (
+                bill.filename or "bill.bin",
+                await bill.read(),
+            ),
+        }
+        try:
+            result = service.save_patient_documents(
+                documents,
+                patient_id=patient_id,
+                doctor_name=doctor_name,
+            )
+        except DischargeFlowError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return BatchSaveResult(
+            patient_id=result["patient_id"],
+            folder=result["folder"],
+            documents=[UploadResult(**doc) for doc in result["documents"]],
+            complete=result["complete"],
+        )
 
     @app.post("/patients/{patient_id}/upload", response_model=UploadResult)
     async def upload_document(

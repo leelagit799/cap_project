@@ -27,6 +27,8 @@ _ACCEPT = {
     "bill": [".pdf", ".txt", ".json", ".png", ".jpg", ".jpeg"],
 }
 
+_DOC_ORDER = ("discharge_report", "lab_report", "bill")
+
 
 @st.cache_resource
 def upload_service() -> UploadService:
@@ -38,6 +40,8 @@ def _init_state() -> None:
         st.session_state.upload_patient_id = None
     if "upload_success_patient" not in st.session_state:
         st.session_state.upload_success_patient = None
+    if "upload_save_message" not in st.session_state:
+        st.session_state.upload_save_message = None
 
 
 def page_upload(_svc: DashboardService) -> None:
@@ -54,7 +58,13 @@ def page_upload(_svc: DashboardService) -> None:
         unsafe_allow_html=True,
     )
 
-    if st.session_state.upload_success_patient:
+    if st.session_state.upload_save_message:
+        st.markdown(
+            f'<div class="df-banner clear">✅ {st.session_state.upload_save_message}</div>',
+            unsafe_allow_html=True,
+        )
+
+    if st.session_state.upload_success_patient and not st.session_state.upload_save_message:
         st.markdown(
             '<div class="df-banner clear">✅ Patient successfully added. '
             f'Open <strong>Document Viewer</strong> to process '
@@ -68,6 +78,7 @@ def page_upload(_svc: DashboardService) -> None:
             created = upload_svc.create_patient()
             st.session_state.upload_patient_id = created["patient_id"]
             st.session_state.upload_success_patient = None
+            st.session_state.upload_save_message = None
             st.toast(f"Allocated {created['patient_id']}", icon="🆔")
             st.rerun()
 
@@ -87,7 +98,10 @@ def page_upload(_svc: DashboardService) -> None:
 
     patient_id = st.session_state.upload_patient_id
     if not patient_id:
-        st.info("Click **New patient** to generate a patient ID, then upload the three required documents.")
+        st.info(
+            "Click **New patient** to generate a patient ID, select all three documents, "
+            "then click **Save Patient Documents**."
+        )
         if patients:
             st.markdown("#### Recent uploads")
             st.dataframe(
@@ -134,13 +148,17 @@ def page_upload(_svc: DashboardService) -> None:
         value=detail.get("doctor_name") or "",
         placeholder="e.g. Dr Smith",
         help="Used to build names like P1025_DrSmith.pdf",
+        key=f"upload-doctor-{patient_id}",
     )
 
     st.markdown("#### Upload documents")
-    st.caption("Drag files into each card. Files are renamed automatically before storage.")
+    st.caption("Select all three files below. They are saved together when you click Save Patient Documents.")
+
+    saved_by_type = {doc["doc_type"]: doc for doc in detail["documents"]}
+    pending_uploads: dict[str, object] = {}
 
     columns = st.columns(3)
-    for column, doc_type in zip(columns, ("discharge_report", "lab_report", "bill")):
+    for column, doc_type in zip(columns, _DOC_ORDER):
         label, formats = _DOC_LABELS[doc_type]
         icon = _DOC_ICONS[doc_type]
         with column:
@@ -157,29 +175,67 @@ def page_upload(_svc: DashboardService) -> None:
                 label_visibility="collapsed",
             )
             if uploaded is not None:
-                replace = st.checkbox("Replace existing", key=f"replace-{patient_id}-{doc_type}")
-                if st.button(f"Save {label}", key=f"save-{patient_id}-{doc_type}", use_container_width=True):
-                    progress = st.progress(0, text="Uploading…")
-                    try:
-                        progress.progress(35, text="Validating file…")
-                        upload_svc.upload_document(
-                            patient_id,
-                            doc_type,
-                            uploaded.name,
-                            uploaded.getvalue(),
-                            doctor_name=doctor_name if doc_type == "discharge_report" else None,
-                            replace=replace,
-                        )
-                        progress.progress(100, text="Stored")
-                        st.toast(f"{label} saved", icon="✅")
-                        st.rerun()
-                    except DischargeFlowError as exc:
-                        progress.empty()
-                        st.error(str(exc))
+                pending_uploads[doc_type] = uploaded
+                st.markdown(
+                    f'<span class="df-pill">Selected: {uploaded.name}</span>',
+                    unsafe_allow_html=True,
+                )
+            elif doc_type in saved_by_type:
+                saved = saved_by_type[doc_type]
+                st.markdown(
+                    f'<span class="df-pill">Saved: {saved["filename"]}</span>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown('<span class="df-pill">Not uploaded</span>', unsafe_allow_html=True)
+
+    all_selected = len(pending_uploads) == 3
+    missing_labels = [
+        _DOC_LABELS[doc_type][0]
+        for doc_type in _DOC_ORDER
+        if doc_type not in pending_uploads and doc_type not in saved_by_type
+    ]
+
+    save_col, _ = st.columns([1, 2])
+    with save_col:
+        if st.button(
+            "Save Patient Documents",
+            type="primary",
+            use_container_width=True,
+            disabled=not all_selected,
+        ):
+            progress = st.progress(0, text="Validating documents…")
+            try:
+                documents = {
+                    doc_type: (uploaded.name, uploaded.getvalue())  # type: ignore[union-attr]
+                    for doc_type, uploaded in pending_uploads.items()
+                }
+                progress.progress(50, text="Saving patient folder…")
+                upload_svc.save_patient_documents(
+                    documents,
+                    patient_id=patient_id,
+                    doctor_name=doctor_name or None,
+                )
+                progress.progress(100, text="Complete")
+                st.session_state.upload_success_patient = patient_id
+                st.session_state.upload_save_message = "Patient documents saved successfully."
+                st.toast("Patient documents saved successfully.", icon="✅")
+                st.rerun()
+            except DischargeFlowError as exc:
+                progress.empty()
+                st.error(str(exc))
+
+    if not all_selected and missing_labels:
+        st.caption(
+            "Select files for: "
+            + ", ".join(missing_labels)
+            + ". All three documents are required before saving."
+        )
 
     st.markdown("#### Uploaded files")
-    if not detail["documents"]:
-        st.warning("No documents uploaded yet.")
+    detail = upload_svc.get_patient(patient_id)
+    if not detail or not detail["documents"]:
+        st.warning("No documents saved yet.")
     else:
         for doc in detail["documents"]:
             row_left, row_right = st.columns([4, 1])
@@ -197,10 +253,11 @@ def page_upload(_svc: DashboardService) -> None:
                 if st.button("Delete", key=f"del-{patient_id}-{doc['filename']}"):
                     upload_svc.delete_document(patient_id, doc["filename"])
                     st.session_state.upload_success_patient = None
+                    st.session_state.upload_save_message = None
                     st.toast("Document deleted", icon="🗑️")
                     st.rerun()
 
     st.caption(
-        "When all three documents are uploaded, go to **Document Viewer** and click "
+        "When all three documents are saved, go to **Document Viewer** and click "
         "**Process Patient** to start the AI workflow."
     )

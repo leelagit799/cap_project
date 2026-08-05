@@ -157,6 +157,75 @@ def save_upload(
     }
 
 
+def save_patient_documents(
+    patient_id: str,
+    documents: dict[DocType, tuple[str, bytes]],
+    *,
+    doctor_name: str | None = None,
+) -> list[dict]:
+    """Validate every upload, then persist all documents in one transaction.
+
+  If any document fails validation, nothing is written to disk.
+    """
+    required = {"discharge_report", "lab_report", "bill"}
+    missing = required - set(documents)
+    if missing:
+        labels = ", ".join(sorted(t.replace("_", " ") for t in missing))
+        raise DischargeFlowError(f"Missing required documents: {labels}.")
+
+    for doc_type, (original_name, data) in documents.items():
+        validate_upload(doc_type, original_name, len(data))
+
+    folder = patient_folder(patient_id)
+    staging = folder / ".batch_save_staging"
+    if staging.exists():
+        shutil.rmtree(staging)
+    staging.mkdir(parents=True, exist_ok=True)
+
+    planned: list[tuple[DocType, str, Path]] = []
+    try:
+        for doc_type, (original_name, data) in documents.items():
+            filename = target_filename(
+                patient_id, doc_type, original_name, doctor_name=doctor_name
+            )
+            temp_path = staging / filename
+            temp_path.write_bytes(data)
+            planned.append((doc_type, filename, temp_path))
+
+        folder.mkdir(parents=True, exist_ok=True)
+        for doc_type, filename, temp_path in planned:
+            for existing in list_documents(patient_id):
+                if existing["doc_type"] == doc_type and existing["filename"] != filename:
+                    (folder / existing["filename"]).unlink(missing_ok=True)
+            destination = folder / filename
+            temp_path.replace(destination)
+
+        results = []
+        for doc_type, filename, _ in planned:
+            destination = folder / filename
+            results.append(
+                {
+                    "patient_id": patient_id,
+                    "doc_type": doc_type,
+                    "filename": filename,
+                    "uri": f"{patient_id}/{filename}",
+                    "size_bytes": destination.stat().st_size,
+                    "replaced": True,
+                }
+            )
+        _log.info(
+            "patient documents saved",
+            extra={"patient_id": patient_id, "count": len(results)},
+        )
+        return results
+    except Exception:
+        for _, filename, temp_path in planned:
+            temp_path.unlink(missing_ok=True)
+        raise
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
 def delete_document(patient_id: str, filename: str) -> None:
     folder = patient_folder(patient_id)
     path = (folder / filename).resolve()

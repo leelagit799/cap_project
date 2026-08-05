@@ -52,6 +52,13 @@ class UploadResult(BaseModel):
     replaced: bool = False
 
 
+class BatchSaveResult(BaseModel):
+    patient_id: str
+    folder: str
+    documents: list[UploadResult] = Field(default_factory=list)
+    complete: bool = False
+
+
 class ProcessResult(BaseModel):
     patient_id: str
     case_id: str

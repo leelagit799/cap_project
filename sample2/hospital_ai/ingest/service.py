@@ -57,6 +57,37 @@ class UploadService:
             "updated_at": row["updated_at"],
         }
 
+    def save_patient_documents(
+        self,
+        documents: dict[DocType, tuple[str, bytes]],
+        *,
+        patient_id: str | None = None,
+        doctor_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Validate and store all three document types in a single transaction."""
+        if patient_id is None:
+            created = self.registry.allocate_patient_id(doctor_name=doctor_name)
+            patient_id = created["patient_id"]
+        elif self.registry.get_patient(patient_id) is None:
+            raise DischargeFlowError(f"Unknown patient {patient_id}. Create the patient first.")
+
+        if doctor_name:
+            self.registry.touch(patient_id, doctor_name=doctor_name)
+
+        saved = storage.save_patient_documents(
+            patient_id,
+            documents,
+            doctor_name=doctor_name,
+        )
+        self.registry.touch(patient_id)
+        detail = self.get_patient(patient_id)
+        return {
+            "patient_id": patient_id,
+            "folder": detail["folder"] if detail else str(storage.patient_folder(patient_id)),
+            "documents": saved,
+            "complete": detail["complete"] if detail else True,
+        }
+
     def upload_document(
         self,
         patient_id: str,

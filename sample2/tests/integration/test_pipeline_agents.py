@@ -42,18 +42,28 @@ async def _roots(context):
 async def _stub_sampling(context, params: types.CreateMessageRequestParams):
     """Deterministic stand-in for the agent's LiteLLM client.
 
-    Echoes the source text so translation is observable without asserting on
-    model wording, while still exercising the full Sampling round trip.
+    Applies offline clinical translation when the Lang Bridge requests a
+    non-English normalization, exercising the full Sampling round trip.
     """
+    from hospital_ai.llm.offline_translate import (
+        infer_source_language_from_prompt,
+        offline_translate_clinical,
+    )
+
     source = params.messages[0].content.text
     hint = (
         params.modelPreferences.hints[0].name
         if params.modelPreferences and params.modelPreferences.hints
         else "none"
     )
+    language = infer_source_language_from_prompt(params.systemPrompt)
+    if language and language != "en":
+        translated = offline_translate_clinical(source, language)
+    else:
+        translated = source
     return types.CreateMessageResult(
         role="assistant",
-        content=types.TextContent(type="text", text=source),
+        content=types.TextContent(type="text", text=translated),
         model=f"bedrock/{hint}",
         stopReason="endTurn",
     )
@@ -183,6 +193,25 @@ class TestNormalization:
         assert result["sampling_used"] is True
         assert result["model_used"] == "bedrock/nova-lite"
 
+    async def test_spanish_content_is_normalized_to_english(self):
+        async with pipeline() as (extractor, normalizer, _):
+            record = (await extractor.extract("P1020", "C"))["record"]
+            result = await normalizer.normalize(record, "C")
+
+        discharge = result["record"]["discharge_report"]
+        instructions = (discharge.get("discharge_instructions") or "").lower()
+        assert "diabetic" in instructions or "blood" in instructions or "medication" in instructions
+        assert "diabéticos" not in instructions
+
+    async def test_hindi_content_is_normalized_to_english(self):
+        async with pipeline() as (extractor, normalizer, _):
+            record = (await extractor.extract("P1021", "C"))["record"]
+            result = await normalizer.normalize(record, "C")
+
+        discharge = result["record"]["discharge_report"]
+        assert discharge.get("gender") == "Male"
+        assert "General Medicine" in (discharge.get("service_line") or "")
+
     async def test_abbreviations_expand_without_touching_drug_facts(self):
         """BID becomes twice daily; the drug, strength and quantity do not move."""
         async with pipeline() as (extractor, normalizer, _):
@@ -223,7 +252,7 @@ class TestValidationOutcomes:
 
         allergy = next(f for f in result.findings if f.rule_id == "allergy_contradiction_check")
         assert allergy.severity.value == "critical"
-        assert "Amoxicilline" in str(allergy.actual)
+        assert "Amoxicillin" in str(allergy.actual)
 
     async def test_p1024_also_reports_its_missing_demographics(self):
         _, _, result = await run_case("P1024")

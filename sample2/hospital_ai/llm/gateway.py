@@ -20,6 +20,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Iterable
 
+from hospital_ai.llm.offline_translate import (
+    infer_source_language_from_prompt,
+    offline_translate_clinical,
+)
 from hospital_ai.core.config import get_settings
 from hospital_ai.core.errors import LLMError
 from hospital_ai.core.logging import get_logger
@@ -220,12 +224,16 @@ _OFFLINE_GLOSSARY = {
 
 
 def _offline_completion(prompt: str, system: str | None, model: str) -> Completion:
-    text = prompt
-    lowered = text.lower()
-    for source, target in _OFFLINE_GLOSSARY.items():
-        if source in lowered:
-            text = re.sub(re.escape(source), target, text, flags=re.IGNORECASE)
-            lowered = text.lower()
+    source_language = infer_source_language_from_prompt(system)
+    if source_language and source_language != "en":
+        text = offline_translate_clinical(prompt, source_language)
+    else:
+        text = prompt
+        lowered = text.lower()
+        for source, target in _OFFLINE_GLOSSARY.items():
+            if source in lowered:
+                text = re.sub(re.escape(source), target, text, flags=re.IGNORECASE)
+                lowered = text.lower()
 
     return Completion(
         text=text,
