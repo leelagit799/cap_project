@@ -8,6 +8,7 @@ import streamlit as st
 
 from hospital_ai.core.errors import DischargeFlowError
 from hospital_ai.ingest.service import UploadService
+from hospital_ai.ui.service import DashboardService
 from hospital_ai.ui.streamlit_hitl import theme
 
 _DOC_LABELS = {
@@ -39,7 +40,7 @@ def _init_state() -> None:
         st.session_state.upload_patient_id = None
 
 
-def page_upload() -> None:
+def page_upload(svc: DashboardService) -> None:
     _init_state()
     svc = upload_service()
 
