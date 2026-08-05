@@ -29,6 +29,7 @@ _log = get_logger(__name__, tool="medical-lang-bridge")
 #: covers English, Spanish, Hindi, German, French and Dutch.
 _SCRIPT_RANGES = {
     "hi": ((0x0900, 0x097F),),  # Devanagari
+    "te": ((0x0C00, 0x0C7F),),  # Telugu
 }
 
 _LANGUAGE_MARKERS: dict[str, tuple[str, ...]] = {

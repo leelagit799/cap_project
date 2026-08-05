@@ -108,20 +108,33 @@ def build_sampling_handler(gateway: LLMGateway | None = None):
     return handle
 
 
-#: Fields whose free text is worth translating. Identifiers, dates, drug names,
-#: strengths and amounts are deliberately excluded: translating them would risk
-#: corrupting clinical facts the validator compares against the EHR.
-TRANSLATABLE_FIELDS = (
-    ("discharge_report", "discharge_instructions"),
-    ("discharge_report", "gender"),
-    ("discharge_report", "service_line"),
-)
+#: Scalar string fields whose free text should be translated to English.
+#: Identifiers, dates, numeric codes and strength amounts are excluded.
+TRANSLATABLE_SCALARS: dict[str, tuple[str, ...]] = {
+    "discharge_report": (
+        "gender",
+        "address",
+        "ward",
+        "service_line",
+        "discharge_instructions",
+        "discharge_approved_by",
+    ),
+    "lab_report": ("vendor_name", "lab_name", "comment"),
+    "bill": ("hospital_name", "payment_method", "notes"),
+}
 
-TRANSLATABLE_LISTS = (
-    ("discharge_report", "discharge_diagnosis"),
-    ("discharge_report", "adr_allergy_info"),
-    ("discharge_report", "follow_up_appointments"),
-)
+TRANSLATABLE_LISTS: dict[str, tuple[str, ...]] = {
+    "discharge_report": (
+        "discharge_diagnosis",
+        "adr_allergy_info",
+        "follow_up_appointments",
+        "consulting_doctors",
+    ),
+}
+
+TRANSLATABLE_PRESCRIPTION_FIELDS = ("medicine_name", "dosage", "remarks", "period")
+TRANSLATABLE_LAB_TEST_FIELDS = ("test", "documented_action")
+TRANSLATABLE_BILL_LINE_FIELDS = ("description",)
 
 
 def build_graph(tools: ToolGateway):
@@ -167,24 +180,55 @@ def build_graph(tools: ToolGateway):
             abbreviations.update(outcome.get("abbreviations_expanded") or {})
             model_used = outcome.get("model_used") or model_used
             sampling_used = sampling_used or outcome.get("sampling_used", False)
+            translated[key] = outcome["translated_text"]
             return outcome["translated_text"]
 
-        for section, field in TRANSLATABLE_FIELDS:
-            value = (record.get(section) or {}).get(field)
-            if not isinstance(value, str) or not value.strip():
-                continue
-            key = f"{section}.{field}"
-            record[section][field] = await bridge_field(key, value)
-            translated[key] = record[section][field]
+        for section, fields in TRANSLATABLE_SCALARS.items():
+            payload = record.get(section) or {}
+            for field in fields:
+                value = payload.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                key = f"{section}.{field}"
+                payload[field] = await bridge_field(key, value)
 
-        for section, field in TRANSLATABLE_LISTS:
-            values = (record.get(section) or {}).get(field) or []
-            if not values:
-                continue
-            record[section][field] = [
-                await bridge_field(f"{section}.{field}[{index}]", str(entry))
-                for index, entry in enumerate(values)
-            ]
+        for section, fields in TRANSLATABLE_LISTS.items():
+            payload = record.get(section) or {}
+            for field in fields:
+                values = payload.get(field) or []
+                if not values:
+                    continue
+                payload[field] = [
+                    await bridge_field(f"{section}.{field}[{index}]", str(entry))
+                    for index, entry in enumerate(values)
+                ]
+
+        discharge = record.get("discharge_report") or {}
+        for index, prescription in enumerate(discharge.get("medications") or []):
+            for field in TRANSLATABLE_PRESCRIPTION_FIELDS:
+                value = prescription.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                key = f"discharge_report.medications[{index}].{field}"
+                prescription[field] = await bridge_field(key, value)
+
+        labs = record.get("lab_report") or {}
+        for index, test in enumerate(labs.get("tests") or []):
+            for field in TRANSLATABLE_LAB_TEST_FIELDS:
+                value = test.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                key = f"lab_report.tests[{index}].{field}"
+                test[field] = await bridge_field(key, value)
+
+        bill = record.get("bill") or {}
+        for index, line in enumerate(bill.get("line_items") or []):
+            for field in TRANSLATABLE_BILL_LINE_FIELDS:
+                value = line.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    continue
+                key = f"bill.line_items[{index}].{field}"
+                line[field] = await bridge_field(key, value)
 
         return {
             "record": record,
@@ -305,13 +349,31 @@ async def _bridge(
 def _representative_text(record: dict[str, Any]) -> str:
     """A sample of free text wide enough to identify the language."""
     discharge = record.get("discharge_report") or {}
+    labs = record.get("lab_report") or {}
+    bill = record.get("bill") or {}
     parts: list[str] = []
     for value in (
         discharge.get("discharge_instructions"),
         discharge.get("service_line"),
+        discharge.get("gender"),
+        discharge.get("address"),
         *(discharge.get("discharge_diagnosis") or []),
         *(discharge.get("follow_up_appointments") or []),
         *(discharge.get("adr_allergy_info") or []),
+        *(
+            m.get("remarks") or ""
+            for m in (discharge.get("medications") or [])
+        ),
+        labs.get("comment"),
+        *(
+            t.get("test") or ""
+            for t in (labs.get("tests") or [])
+        ),
+        bill.get("notes"),
+        *(
+            item.get("description") or ""
+            for item in (bill.get("line_items") or [])
+        ),
     ):
         if isinstance(value, str) and value.strip():
             parts.append(value)
