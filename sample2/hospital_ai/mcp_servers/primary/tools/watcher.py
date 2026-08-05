@@ -18,7 +18,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 
 from hospital_ai.core.config import get_settings
-from hospital_ai.core.ids import extract_patient_id
+from hospital_ai.core.ids import extract_patient_id, PATIENT_ID_PATTERN
 from hospital_ai.core.logging import get_logger
 from hospital_ai.documents.loaders import (
     ENCODING_PRIORITY,
@@ -37,6 +37,21 @@ from hospital_ai.mcp_servers.primary.roots import (
 _log = get_logger(__name__, tool="clinical-watcher")
 
 
+def _by_patient_folder_doctype(path: Path) -> str | None:
+    """Classify files in ``data/input/P1025/P1025_DrSmith.pdf`` layouts."""
+    parent = path.parent.name
+    if not PATIENT_ID_PATTERN.fullmatch(parent):
+        return None
+    name = path.stem.lower()
+    if "_labs" in name or name.endswith("_lab"):
+        return "lab_report"
+    if "_bill" in name:
+        return "bill"
+    if extract_patient_id(path.name) and path.name.startswith(f"{parent}_"):
+        return "discharge_report"
+    return None
+
+
 def _doctype_of(path: Path, roots: list[Path]) -> str | None:
     """Infer the document type from the folder the file sits in."""
     settings = get_settings()
@@ -45,6 +60,10 @@ def _doctype_of(path: Path, roots: list[Path]) -> str | None:
     for part in reversed(path.parts):
         if part in folder_to_doctype:
             return folder_to_doctype[part]
+
+    by_patient = _by_patient_folder_doctype(path)
+    if by_patient:
+        return by_patient
 
     # `by_patient` layout: Data/incoming/P1019/labs.txt
     name = path.name.lower()

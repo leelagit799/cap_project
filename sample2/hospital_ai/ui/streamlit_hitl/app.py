@@ -27,6 +27,7 @@ import streamlit as st
 from hospital_ai.core.config import get_settings
 from hospital_ai.ui.service import DashboardService, elicitation_log, set_elicitation_answers
 from hospital_ai.ui.streamlit_hitl import theme
+from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
 
 st.set_page_config(
     page_title="DischargeFlow — Clinical Review",
@@ -37,6 +38,7 @@ st.set_page_config(
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
 PAGES = {
+    "0 · Patient Upload": "upload",
     "1 · Document Viewer": "documents",
     "2 · Validation Report": "validation",
     "3 · HITL Corrections": "corrections",
@@ -737,6 +739,7 @@ def main() -> None:
     svc = service()
     page = render_sidebar(svc)
     {
+        "upload": page_upload,
         "documents": page_documents,
         "validation": page_validation,
         "corrections": page_corrections,

@@ -144,6 +144,26 @@ section[data-testid="stSidebar"] { background: var(--df-surface);
 div[data-testid="stDataFrame"] { border: 1px solid var(--df-line); border-radius: 10px; }
 .stButton > button { border-radius: 9px; font-weight: 600; transition: transform .12s ease; }
 .stButton > button:hover { transform: translateY(-1px); }
+
+/* ---- Upload workspace ---- */
+.df-upload-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.df-upload-card {
+  background: var(--df-surface); border: 1px dashed var(--df-line); border-radius: 14px;
+  padding: 18px; min-height: 180px; transition: border-color .2s ease, box-shadow .2s ease;
+}
+.df-upload-card:hover { border-color: var(--df-accent); box-shadow: var(--df-shadow); }
+.df-upload-card h4 { margin: 0 0 8px; font-size: 14px; color: var(--df-ink); }
+.df-upload-card p { margin: 0 0 12px; font-size: 12px; color: var(--df-muted); }
+.df-id-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
+  background: rgba(43,95,217,.12); color: var(--df-accent); font-weight: 700; font-size: 14px;
+  border: 1px solid rgba(43,95,217,.25); margin-bottom: 16px;
+}
+.df-file-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--df-line); border-radius: 10px; margin-bottom: 8px;
+  background: var(--df-surface-2);
+}
 </style>
 """
 

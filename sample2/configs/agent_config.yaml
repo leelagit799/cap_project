@@ -24,6 +24,7 @@ ports:
   primary_mcp: 8200
   analytics_mcp: 8201
   dashboard: 8501
+  ingest: 8060
 
 # -----------------------------------------------------------------------------
 # MCP transport paths — doc Table 8
@@ -49,6 +50,13 @@ roots:
     discharge_report: doctor_reports
     lab_report: lab_reports
     bill: bills
+
+# -----------------------------------------------------------------------------
+# Dynamic patient uploads — per-patient folders watched alongside static samples
+# -----------------------------------------------------------------------------
+upload:
+  workspace: data/input
+  max_file_bytes: 26214400   # 25 MiB
 
 # -----------------------------------------------------------------------------
 # LLM routing — doc Table 14

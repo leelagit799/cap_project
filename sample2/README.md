@@ -46,12 +46,13 @@ Open these services:
 | Service | URL | Purpose |
 | --- | --- | --- |
 | Host Orchestrator (Gradio) | http://localhost:8083 | Run workflows, stream summaries, RAG, agent health |
-| HITL Dashboard (Streamlit) | http://localhost:8501 | Five-page clinical review workspace (Table 13) |
+| HITL Dashboard (Streamlit) | http://localhost:8501 | Six-page clinical workspace incl. Patient Upload |
+| Patient Upload API | http://localhost:8060/docs | Dynamic document ingestion REST API |
 | Mock EHR | http://localhost:8050/docs | Patients, medications, allergies, labs, care plans |
 | Primary MCP | http://localhost:8200/clinicaltools | Tools, resources, prompts, sampling, elicitation, roots |
 | Analytics MCP | http://localhost:8201/analyticstools | Risk scores, benchmarks, heatmap |
 
-`Ctrl+C` stops all eleven processes. To start only infrastructure or agents:
+`Ctrl+C` stops all twelve processes. To start only infrastructure or agents:
 
 ```bash
 python run.py --only ehr mcp    # EHR + both MCP servers

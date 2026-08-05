@@ -52,14 +52,27 @@ class ServerEndpoint:
         return cls("analytics-tools", f"http://localhost:{port}/analyticstools")
 
 
-def build_roots_callback(workspace: Path | None = None):
-    """Declare the input folder as a Root URI when the connection opens."""
-    root = (workspace or get_settings().roots.workspace).resolve()
+def clinical_workspaces() -> list[Path]:
+    """All filesystem roots the Clinical Watcher may scan."""
+    settings = get_settings()
+    roots = [settings.roots.workspace.resolve()]
+    upload = settings.upload_dir.resolve()
+    if upload not in roots:
+        roots.append(upload)
+    return roots
+
+
+def build_roots_callback(workspaces: list[Path] | None = None):
+    """Declare every authorised input folder as MCP Root URIs."""
+    roots = [path.resolve() for path in (workspaces or clinical_workspaces())]
 
     async def list_roots(context) -> types.ListRootsResult:
-        _log.debug("declaring MCP root", extra={"root": str(root)})
+        _log.debug("declaring MCP roots", extra={"roots": [str(r) for r in roots]})
         return types.ListRootsResult(
-            roots=[types.Root(uri=AnyUrl(root.as_uri()), name="clinical-input")]
+            roots=[
+                types.Root(uri=AnyUrl(path.as_uri()), name=f"clinical-input-{index}")
+                for index, path in enumerate(roots)
+            ]
         )
 
     return list_roots
@@ -124,12 +137,18 @@ class MultiServerMCPClient:
         sampling_handler: SamplingHandler | None = None,
         elicitation_handler: ElicitationHandler | None = None,
         workspace: Path | None = None,
+        workspaces: list[Path] | None = None,
         endpoints: list[ServerEndpoint] | None = None,
     ) -> None:
         self.endpoints = endpoints or [ServerEndpoint.primary(), ServerEndpoint.analytics()]
         self._sampling = build_sampling_callback(sampling_handler)
         self._elicitation = build_elicitation_callback(elicitation_handler)
-        self._roots = build_roots_callback(workspace)
+        if workspaces is not None:
+            self._roots = build_roots_callback(workspaces)
+        elif workspace is not None:
+            self._roots = build_roots_callback([workspace])
+        else:
+            self._roots = build_roots_callback()
         self.sessions: dict[str, ClientSession] = {}
         self._stack: contextlib.AsyncExitStack | None = None
 

@@ -13,12 +13,17 @@ venv/
 **/.venv/
 **/venv/
 sample2/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
 .mypy_cache/
 .ruff_cache/
 
 # Generated runtime data
 sample2/data/*
 !sample2/data/.gitkeep
+!sample2/data/input/
+!sample2/data/input/.gitkeep
 !sample2/data/reports/.gitkeep
 !sample2/data/sessions/.gitkeep
 !sample2/data/state/.gitkeep

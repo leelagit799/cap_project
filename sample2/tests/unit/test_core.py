@@ -25,7 +25,7 @@ from hospital_ai.core.schemas import (
 class TestConfig:
     def test_ports_match_table_15(self, settings):
         expected = {
-            "ehr": 8050, "extractor": 8100, "validator": 8101, "normalizer": 8102,
+            "ehr": 8050, "ingest": 8060, "extractor": 8100, "validator": 8101, "normalizer": 8102,
             "monitor": 8103, "summary": 8104, "rag": 8105, "host": 8083,
             "primary_mcp": 8200, "analytics_mcp": 8201, "dashboard": 8501,
         }

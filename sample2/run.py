@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Start every DischargeFlow service.
 
-Brings up all eleven processes of doc Table 15 in dependency order — the Mock
+Brings up all twelve processes of doc Table 15 in dependency order — the Mock
 EHR and both MCP servers first, then the six A2A agents, then the two user
 interfaces — and shuts them all down on Ctrl+C.
 
@@ -49,6 +49,9 @@ def build_services() -> list[Service]:
     return [
         Service("ehr", "Mock EHR", ports.ehr, module("hospital_ai.ehr.app"),
                 "infrastructure", f"http://localhost:{ports.ehr}/docs"),
+        Service("ingest", "Patient Upload API", ports.ingest,
+                module("hospital_ai.ingest.app"), "infrastructure",
+                f"http://localhost:{ports.ingest}/docs"),
         Service("mcp-primary", "Primary MCP Clinical Tools", ports.primary_mcp,
                 module("hospital_ai.mcp_servers.primary.server"), "infrastructure",
                 f"http://localhost:{ports.primary_mcp}/clinicaltools"),

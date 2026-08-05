@@ -69,6 +69,7 @@ class Ports:
     primary_mcp: int = 8200
     analytics_mcp: int = 8201
     dashboard: int = 8501
+    ingest: int = 8060
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,8 @@ class Settings:
     vector_dir: Path
     sessions_dir: Path
     state_dir: Path
+    upload_dir: Path
+    upload_max_bytes: int
     rules: dict[str, Any]
     prompts: dict[str, Any]
     rules_version: str
@@ -168,6 +171,7 @@ class Settings:
             self.vector_dir,
             self.sessions_dir,
             self.state_dir,
+            self.upload_dir,
         ):
             directory.mkdir(parents=True, exist_ok=True)
 
@@ -233,6 +237,11 @@ def get_settings() -> Settings:
         )
 
     data_dir = PROJECT_ROOT / "data"
+    upload_cfg = agent_cfg.get("upload") or {}
+    upload_dir = Path(upload_cfg.get("workspace", "data/input"))
+    if not upload_dir.is_absolute():
+        upload_dir = PROJECT_ROOT / upload_dir
+    upload_max_bytes = int(upload_cfg.get("max_file_bytes", 25 * 1024 * 1024))
     return Settings(
         ports=ports,
         llm=llm,
@@ -246,6 +255,8 @@ def get_settings() -> Settings:
         vector_dir=data_dir / "vector_db",
         sessions_dir=data_dir / "sessions",
         state_dir=data_dir / "state",
+        upload_dir=upload_dir,
+        upload_max_bytes=upload_max_bytes,
         rules=rules,
         prompts=prompts,
         rules_version=_rules_version(CONFIG_DIR / "rules.yaml"),
