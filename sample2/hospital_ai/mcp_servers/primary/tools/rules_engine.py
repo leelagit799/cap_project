@@ -244,6 +244,7 @@ async def validate_completeness(
         if elicitation["action"] == ElicitAction.ACCEPT.value:
             _apply_elicited_values(packet, findings, elicitation["response"])
 
+    refresh_resolved_findings(packet, findings)
     completeness_score = round(100 * total_present / max(total_required, 1), 1)
     blocked = any(f["blocking"] and not f["resolved"] for f in findings)
 
@@ -325,6 +326,25 @@ def _apply_elicited_values(
                     if finding["rule_id"] == f"missing_field.{doc_type}.{field}":
                         finding["resolved"] = True
                         finding["resolution_note"] = "Supplied by reviewer via MCP elicitation."
+    refresh_resolved_findings(packet, findings)
+
+
+def refresh_resolved_findings(packet: dict[str, Any], findings: list[dict[str, Any]]) -> None:
+    """Mark completeness findings resolved when the packet now satisfies them."""
+    for finding in findings:
+        if finding.get("resolved"):
+            continue
+        rule_id = str(finding.get("rule_id", ""))
+        if not rule_id.startswith("missing_field."):
+            continue
+        parts = rule_id.split(".", 2)
+        if len(parts) != 3:
+            continue
+        _, doc_type, field = parts
+        document = packet.get(doc_type)
+        if isinstance(document, dict) and not _is_missing(document.get(field)):
+            finding["resolved"] = True
+            finding["resolution_note"] = "Field present after HITL correction."
 
 
 def register(mcp) -> None:

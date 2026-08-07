@@ -26,6 +26,11 @@ import streamlit as st
 
 from hospital_ai.core.config import get_settings
 from hospital_ai.rag.formatting import mask_pii
+from hospital_ai.ui.hitl_corrections import (
+    corrections_from_elicitation,
+    merge_corrections,
+    normalize_medication_rows,
+)
 from hospital_ai.ui.service import (
     DashboardService,
     elicitation_log,
@@ -432,6 +437,7 @@ def page_corrections(svc: DashboardService) -> None:
         return
 
     discharge = record.get("discharge_report") or {}
+    bill = record.get("bill") or {}
     corrections: dict[str, Any] = {}
 
     st.markdown("#### Medications")
@@ -449,8 +455,10 @@ def page_corrections(svc: DashboardService) -> None:
             num_rows="dynamic",
             key="medication-editor",
         )
-        if not edited.equals(medications[columns]):
-            corrections["discharge_report.medications"] = edited.to_dict("records")
+        normalized = normalize_medication_rows(edited.to_dict("records"))
+        original = normalize_medication_rows(medications[columns].to_dict("records"))
+        if normalized != original:
+            corrections["discharge_report.medications"] = normalized
             st.caption("Medication table has unsaved edits.")
 
     st.markdown("#### Demographics and billing")
@@ -464,8 +472,22 @@ def page_corrections(svc: DashboardService) -> None:
         if age and age != str(discharge.get("age") or ""):
             corrections["discharge_report.age"] = int(age) if age.isdigit() else age
 
+        physician = st.text_input(
+            "Attending / approving physician",
+            discharge.get("attending_physician")
+            or discharge.get("discharge_approved_by")
+            or "",
+            placeholder="e.g. Dr. van Dijk, MD",
+        )
+        current_physician = discharge.get("attending_physician") or discharge.get("discharge_approved_by") or ""
+        if physician and physician != current_physician:
+            corrections["discharge_report.attending_physician"] = physician
+            corrections["discharge_report.discharge_approved_by"] = physician
+            corrections["discharge_report.discharge_approved"] = True
+        elif physician and not discharge.get("discharge_approved"):
+            corrections["discharge_report.discharge_approved"] = True
+
     with right:
-        bill = record.get("bill") or {}
         options = ["PAID", "UNPAID", "PARTIAL", "INSURANCE_GUARANTEED", "UNKNOWN"]
         current = bill.get("payment_status", "UNKNOWN")
         status = st.selectbox(
@@ -474,15 +496,15 @@ def page_corrections(svc: DashboardService) -> None:
         if status != current:
             corrections["bill.payment_status"] = status
 
+        existing_follow_up = discharge.get("follow_up_appointments") or []
+        follow_up_default = existing_follow_up[0] if existing_follow_up else ""
         follow_up = st.text_input(
-            "Add follow-up appointment",
-            placeholder="e.g. Endocrinology 2026-06-20 with Dr. Patel",
+            "Follow-up appointment",
+            value=follow_up_default,
+            placeholder="e.g. Endocrinology 2026-07-02 with Dr. Kapoor",
         )
-        if follow_up:
-            corrections["discharge_report.follow_up_appointments"] = [
-                *(discharge.get("follow_up_appointments") or []),
-                follow_up,
-            ]
+        if follow_up != follow_up_default:
+            corrections["discharge_report.follow_up_appointments"] = [follow_up] if follow_up else []
 
     st.markdown("#### Elicitation responses")
     st.caption(
@@ -500,6 +522,7 @@ def page_corrections(svc: DashboardService) -> None:
         for field in sorted(set(requested)):
             answers[field] = st.text_input(f"↳ {field}", key=f"elicit-{field}")
         set_elicitation_answers(answers)
+        corrections = merge_corrections(corrections, corrections_from_elicitation(answers))
     else:
         st.info("No outstanding elicitation requests for this case.")
 
