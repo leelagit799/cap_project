@@ -195,9 +195,9 @@ class DashboardService:
         }
 
     def trace_url(self, trace_id: str | None) -> str | None:
-        if not trace_id or not self.settings.langfuse.enabled:
-            return None
-        return f"{self.settings.langfuse.host.rstrip('/')}/trace/{trace_id}"
+        from hospital_ai.observability import trace_url as langfuse_trace_url
+
+        return langfuse_trace_url(trace_id)
 
     # --- documents -----------------------------------------------------------
 
