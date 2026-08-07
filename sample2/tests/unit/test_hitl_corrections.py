@@ -8,8 +8,8 @@ from hospital_ai.ui.hitl_corrections import (
     medication_correction_suggestions,
     medication_corrections_if_changed,
     merge_corrections,
-    merge_medication_name_edits,
     normalize_medication_rows,
+    sanitize_medicine_name,
 )
 
 
@@ -111,19 +111,24 @@ class TestHitlCorrections:
         rows = [{"medicine_name": "Metformin", "strength": "500 mg"}]
         assert medication_corrections_if_changed(rows, rows) == {}
 
-    def test_merge_medication_name_edits_preserves_stored_fields(self):
-        stored = [
-            {
-                "medicine_name": "Amoxicilline",
-                "strength": "500 mg",
-                "dosage": "1 tab",
-                "frequency": "TID",
-            }
-        ]
-        merged = merge_medication_name_edits(
-            stored,
-            [{"medicine_name": "Azithromycin"}],
+    def test_sanitize_medicine_name_strips_description(self):
+        assert sanitize_medicine_name(
+            "Amoxicillin Amoxicillin is a medication. It is an antibiotic used to treat various bacterial infections."
+        ) == "Amoxicillin"
+        assert sanitize_medicine_name(
+            "Paracetamol Paracetamol Paracetamol is a medication used to relieve pain"
+        ) == "Paracetamol"
+        assert sanitize_medicine_name("Azithromycin") == "Azithromycin"
+
+    def test_normalize_medication_rows_sanitizes_names(self):
+        rows = normalize_medication_rows(
+            [
+                {
+                    "medicine_name": "Amoxicillin is a medication used for infections",
+                    "strength": "500 mg",
+                    "dosage": "1 tab",
+                }
+            ]
         )
-        assert merged[0]["medicine_name"] == "Azithromycin"
-        assert merged[0]["strength"] == "500 mg"
-        assert merged[0]["frequency"] == "TID"
+        assert rows[0]["medicine_name"] == "Amoxicillin"
+        assert rows[0]["strength"] == "500 mg"

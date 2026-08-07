@@ -40,6 +40,35 @@ def _clean_value(value: Any) -> Any:
     return value
 
 
+def sanitize_medicine_name(name: str) -> str:
+    """Keep only the drug name — strip RAG-style descriptions from polluted values."""
+    text = str(name or "").strip()
+    if not text:
+        return text
+
+    lowered = text.lower()
+    for marker in (
+        " is a ",
+        " is an ",
+        " are ",
+        " used to ",
+        " works by ",
+        " medication",
+    ):
+        index = lowered.find(marker)
+        if index > 0:
+            text = text[:index].strip()
+            lowered = text.lower()
+
+    words = [re.sub(r"[^a-zA-Z0-9\-']+", "", word) for word in text.split()]
+    words = [word for word in words if word]
+    if not words:
+        return str(name).strip()[:80]
+
+    first = words[0]
+    return first[:1].upper() + first[1:] if len(first) > 1 else first.upper()
+
+
 def normalize_medication_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Ensure prescription rows keep medicine_name and JSON-safe values."""
     cleaned: list[dict[str, Any]] = []
@@ -48,7 +77,7 @@ def normalize_medication_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]
         medicine_name = med.get("medicine_name") or med.get("name")
         if not medicine_name:
             continue
-        med["medicine_name"] = str(medicine_name)
+        med["medicine_name"] = sanitize_medicine_name(str(medicine_name))
         med.pop("name", None)
         if med.get("sl_no") is not None:
             try:
@@ -97,35 +126,14 @@ def merge_corrections(*parts: dict[str, Any] | None) -> dict[str, Any]:
 
 def medication_corrections_if_changed(
     stored: list[dict[str, Any]] | None,
-    edited: list[dict[str, Any]] | None,
+    current: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
     """Return a correction payload when the editor differs from the saved record."""
     stored_norm = normalize_medication_rows(stored or [])
-    current_norm = merge_medication_name_edits(stored_norm, edited or [])
+    current_norm = normalize_medication_rows(current or [])
     if current_norm != stored_norm:
         return {"discharge_report.medications": current_norm}
     return {}
-
-
-def merge_medication_name_edits(
-    stored: list[dict[str, Any]] | None,
-    edited: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
-    """Apply medicine-name edits from the HITL table onto the stored prescription rows."""
-    stored_norm = normalize_medication_rows(stored or [])
-    edited_norm = normalize_medication_rows(edited or [])
-    merged: list[dict[str, Any]] = []
-    for index, edited_row in enumerate(edited_norm):
-        base = dict(stored_norm[index]) if index < len(stored_norm) else {}
-        if edited_row.get("medicine_name"):
-            base["medicine_name"] = edited_row["medicine_name"]
-        for key, value in edited_row.items():
-            if key == "medicine_name" or value in (None, ""):
-                continue
-            base[key] = value
-        if base.get("medicine_name"):
-            merged.append(base)
-    return normalize_medication_rows(merged)
 
 
 def _canonical_name(name: str) -> str:
