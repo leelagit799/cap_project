@@ -155,22 +155,36 @@ class MultiServerMCPClient:
     async def __aenter__(self) -> "MultiServerMCPClient":
         self._stack = contextlib.AsyncExitStack()
         await self._stack.__aenter__()
-        for endpoint in self.endpoints:
-            read, write, _ = await self._stack.enter_async_context(
-                streamablehttp_client(endpoint.url)
-            )
-            session = await self._stack.enter_async_context(
-                ClientSession(
-                    read,
-                    write,
-                    sampling_callback=self._sampling,
-                    elicitation_callback=self._elicitation,
-                    list_roots_callback=self._roots,
+        try:
+            for endpoint in self.endpoints:
+                read, write, _ = await self._stack.enter_async_context(
+                    streamablehttp_client(endpoint.url)
                 )
-            )
-            await session.initialize()
-            self.sessions[endpoint.name] = session
-            _log.info("MCP session established", extra={"server": endpoint.name})
+                session = await self._stack.enter_async_context(
+                    ClientSession(
+                        read,
+                        write,
+                        sampling_callback=self._sampling,
+                        elicitation_callback=self._elicitation,
+                        list_roots_callback=self._roots,
+                    )
+                )
+                await session.initialize()
+                self.sessions[endpoint.name] = session
+                _log.info("MCP session established", extra={"server": endpoint.name})
+        except Exception as exc:
+            root = exc
+            if isinstance(exc, BaseExceptionGroup):
+                root = exc.exceptions[0] if exc.exceptions else exc
+            self.sessions.clear()
+            if self._stack is not None:
+                with contextlib.suppress(Exception):
+                    await self._stack.__aexit__(type(exc), exc, exc.__traceback__)
+                self._stack = None
+            raise ConnectionError(
+                f"Could not connect to MCP server at {self.endpoints[0].url!r}. "
+                "Start the stack with `python run.py`."
+            ) from root
         return self
 
     async def __aexit__(self, *exc_info) -> None:

@@ -24,6 +24,30 @@ class ToolGateway(Protocol):
     async def get_prompt(self, name: str, arguments: dict[str, Any] | None = None) -> str: ...
 
 
+class LocalPromptGateway:
+    """RAG-only gateway that renders prompts locally when MCP is unreachable.
+
+    Retrieval and generation run against the in-process FAISS store and offline
+    LLM path, so Q&A can continue when the MCP servers are not running.
+    """
+
+    async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
+        raise RuntimeError(
+            f"MCP tool {tool_name!r} is unavailable without a live MCP session."
+        )
+
+    async def read_resource(self, uri: str) -> str:
+        raise RuntimeError(
+            f"MCP resource {uri!r} is unavailable without a live MCP session."
+        )
+
+    async def get_prompt(self, name: str, arguments: dict[str, Any] | None = None) -> str:
+        from hospital_ai.mcp_servers.primary.prompts import render
+
+        params = {k: str(v) for k, v in (arguments or {}).items()}
+        return render(name, **params)
+
+
 class SessionGateway:
     """Adapts a single ``mcp.ClientSession`` to the gateway interface."""
 

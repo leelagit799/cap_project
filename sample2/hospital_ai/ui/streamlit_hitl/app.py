@@ -26,7 +26,12 @@ import streamlit as st
 
 from hospital_ai.core.config import get_settings
 from hospital_ai.rag.formatting import mask_pii
-from hospital_ai.ui.service import DashboardService, elicitation_log, set_elicitation_answers
+from hospital_ai.ui.service import (
+    DashboardService,
+    elicitation_log,
+    set_elicitation_answers,
+    unwrap_exception_group,
+)
 from hospital_ai.ui.streamlit_hitl import theme
 from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
 from hospital_ai.ui.streamlit_hitl.session_context import (
@@ -632,7 +637,16 @@ def page_rag(svc: DashboardService) -> None:
 
     if st.button("Ask", type="primary") and question.strip():
         with st.spinner("Retrieving, augmenting, generating and reflecting…"):
-            answer = svc.ask(question, patient_id=patient_id)
+            try:
+                answer = svc.ask(question, patient_id=patient_id)
+            except Exception as exc:
+                root = unwrap_exception_group(exc)
+                st.error(
+                    "Clinical Q&A could not complete. "
+                    f"{root}. Start the full stack with `python run.py` if MCP "
+                    "servers are not running."
+                )
+                return
 
         st.session_state.setdefault("rag_history", []).insert(0, answer)
 

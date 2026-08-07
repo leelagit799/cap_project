@@ -17,9 +17,11 @@ import threading
 from pathlib import Path
 from typing import Any, Awaitable, Callable, TypeVar
 
+import httpx
 import mcp.types as types
 
 from hospital_ai.agents.adk.host import HostOrchestrator
+from hospital_ai.agents.gateway import LocalPromptGateway
 from hospital_ai.agents.langgraph.normalizer import build_sampling_handler
 from hospital_ai.core.config import get_settings
 from hospital_ai.core.logging import get_logger
@@ -49,12 +51,46 @@ def elicitation_log() -> list[dict[str, Any]]:
     return list(_ELICITATION_LOG)
 
 
+def unwrap_exception_group(exc: BaseException) -> BaseException:
+    """Return the first leaf exception from a nested ExceptionGroup."""
+    if isinstance(exc, BaseExceptionGroup):
+        for sub in exc.exceptions:
+            return unwrap_exception_group(sub)
+    return exc
+
+
+def is_mcp_connection_error(exc: BaseException) -> bool:
+    """True when the failure is a transport/connect error to an MCP server."""
+    root = unwrap_exception_group(exc)
+    if isinstance(root, (ConnectionError, OSError, asyncio.CancelledError)):
+        return True
+    if isinstance(root, httpx.ConnectError):
+        return True
+    message = str(root).lower()
+    return any(
+        phrase in message
+        for phrase in (
+            "connection attempts failed",
+            "connect error",
+            "connection refused",
+            "no mcp session",
+            "is the server running",
+            "could not connect to mcp server",
+            "cancel scope",
+            "asynchronous generator is already running",
+        )
+    )
+
+
 def run_sync(coro_factory: Callable[[], Awaitable[T]]) -> T:
     """Run a coroutine from synchronous UI code, even inside a live loop."""
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro_factory())
+        try:
+            return asyncio.run(coro_factory())
+        except BaseException as exc:
+            raise unwrap_exception_group(exc) from exc
 
     # Streamlit sometimes runs inside an event loop; use a worker thread so we
     # never call asyncio.run() on a loop that is already running.
@@ -64,7 +100,7 @@ def run_sync(coro_factory: Callable[[], Awaitable[T]]) -> T:
         try:
             result["value"] = asyncio.run(coro_factory())
         except BaseException as exc:  # noqa: BLE001 - re-raised on the caller's thread
-            result["error"] = exc
+            result["error"] = unwrap_exception_group(exc)
 
     thread = threading.Thread(target=worker)
     thread.start()
@@ -114,6 +150,25 @@ class DashboardService:
     def _run(self, action: Callable[[HostOrchestrator], Awaitable[T]]) -> T:
         return run_sync(lambda: self._with_host(action))
 
+    async def _ask_local(
+        self,
+        question: str,
+        *,
+        patient_id: str | None,
+        session_id: str,
+    ) -> dict[str, Any]:
+        """Answer via in-process RAG when MCP servers are unreachable."""
+        from hospital_ai.agents.agno.rag_agent import ClinicalRAGAgent
+        from hospital_ai.rag.store import get_store as get_vector_store
+
+        agent = ClinicalRAGAgent(LocalPromptGateway(), store=get_vector_store())
+        answer = await agent.answer(
+            question, patient_id=patient_id, session_id=session_id
+        )
+        payload = answer.model_dump(mode="json")
+        payload["prompt_source"] = "local:rag-answer-prompt"
+        return payload
+
     # --- workflow ------------------------------------------------------------
 
     def discover(self, only_new: bool = False) -> dict[str, Any]:
@@ -146,7 +201,20 @@ class DashboardService:
             )
             return answer.model_dump(mode="json")
 
-        return self._run(query)
+        try:
+            return self._run(query)
+        except (Exception, asyncio.CancelledError) as exc:
+            if is_mcp_connection_error(exc):
+                _log.warning(
+                    "MCP unavailable; using local RAG path for dashboard Q&A",
+                    extra={"error": str(unwrap_exception_group(exc))},
+                )
+                return run_sync(
+                    lambda: self._ask_local(
+                        question, patient_id=patient_id, session_id=session_id
+                    )
+                )
+            raise
 
     def agent_health(self) -> dict[str, Any]:
         from hospital_ai.a2a.client import A2AClient

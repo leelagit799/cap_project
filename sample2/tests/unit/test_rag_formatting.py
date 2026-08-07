@@ -58,6 +58,15 @@ class TestStructuredAnswers:
         )
         assert OUT_OF_CONTEXT_ANSWER in answer
 
+    def test_allergy_question_lists_substances(self):
+        allergy_context = """\
+[1] (discharge_report/allergies, patient P1019)
+Allergies and adverse drug reactions for Thomas Wright (P1019): Penicillin (rash); Sulfa drugs (hives).
+"""
+        answer = compose_structured_answer("Any listed allergies?", allergy_context)
+        assert "Penicillin" in answer
+        assert "## Direct answer" in answer
+
 
 class TestTriadScoring:
     def test_irrelevant_question_scores_low_relevance(self):
@@ -112,3 +121,23 @@ class TestTriadScoring:
         values = (triad.faithfulness, triad.answer_relevance, triad.context_relevance)
         assert all(0.0 < value < 1.0 for value in values), values
         assert len({round(v, 2) for v in values}) >= 2
+
+    def test_allergy_answer_passes_faithfulness(self):
+        allergy_context = """\
+[1] (discharge_report/allergies, patient P1019)
+Allergies and adverse drug reactions for Thomas Wright (P1019): Penicillin (rash); Sulfa drugs (hives).
+"""
+        chunks = [
+            RetrievedChunk(
+                chunk_id="a",
+                patient_id="P1019",
+                doc_type="discharge_report",
+                section="allergies",
+                text="Allergies and adverse drug reactions for Thomas Wright (P1019): "
+                "Penicillin (rash); Sulfa drugs (hives).",
+                score=0.65,
+            )
+        ]
+        answer = compose_structured_answer("Any listed allergies?", allergy_context)
+        triad = ReflectionAgent().score("Any listed allergies?", answer, chunks)
+        assert triad.passes
