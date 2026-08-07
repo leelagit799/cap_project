@@ -598,6 +598,7 @@ def page_corrections(svc: DashboardService) -> None:
                 notes=notes,
             )
             st.session_state[pending_key] = None
+            st.session_state.setdefault("rag_refresh_patients", set()).add(case["patient_id"])
             st.toast("Review saved", icon="💾")
             st.success("Feedback recorded and corrections saved to the case record.")
             st.rerun()
@@ -607,6 +608,7 @@ def page_corrections(svc: DashboardService) -> None:
             with st.spinner("Applying corrections and re-validating…"):
                 outcome = svc.revalidate(case["case_id"], corrections)
             st.session_state[pending_key] = None
+            st.session_state.setdefault("rag_refresh_patients", set()).add(case["patient_id"])
             refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Validation re-run", icon="🔄")
             if outcome["requires_hitl"]:
@@ -683,6 +685,22 @@ def page_rag(svc: DashboardService) -> None:
         default_index = options.index(default_patient) if default_patient in options else 0
         patient_filter = st.selectbox("Patient filter", options, index=default_index)
     patient_id = None if patient_filter == "All patients" else patient_filter
+
+    if patient_id:
+        refresh_patients = st.session_state.setdefault("rag_refresh_patients", set())
+        if patient_id in refresh_patients:
+            cases_for_patient = svc.cases(patient_id=patient_id)
+            if cases_for_patient:
+                try:
+                    svc.reindex_case(cases_for_patient[0]["case_id"])
+                except KeyError:
+                    pass
+            refresh_patients.discard(patient_id)
+            st.session_state["rag_history"] = []
+            st.info(
+                "HITL corrections were saved for this patient. "
+                "The Q&A index has been refreshed — ask again for updated answers."
+            )
 
     st.markdown("**Example questions**")
     columns = st.columns(len(EXAMPLE_QUESTIONS))

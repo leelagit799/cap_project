@@ -189,6 +189,10 @@ class DashboardService:
             corrections_from_elicitation(_PENDING_ELICITATION),
         )
         outcome = self._run(lambda host: host.revalidate(case_id, merged or None))
+        # Host re-indexes during revalidate; refresh again from the UI store so
+        # the local in-process RAG path always matches the saved record.
+        if merged:
+            self.reindex_case(case_id)
         return outcome.to_dict()
 
     def summary_events(self, case_id: str) -> list[dict[str, Any]]:
@@ -256,7 +260,17 @@ class DashboardService:
         if corrections:
             self.store.apply_corrections(case_id, corrections)
             kwargs = {**kwargs, "corrections": corrections}
+            self.reindex_case(case_id)
         self.store.save_review(case_id, **kwargs)
+
+    def reindex_case(self, case_id: str) -> dict[str, Any]:
+        """Refresh the RAG index from the latest stored case record."""
+        from hospital_ai.rag.reindex import reindex_case_record
+
+        record = self.store.get_record(case_id)
+        if record is None:
+            raise KeyError(f"No record stored for {case_id}")
+        return reindex_case_record(case_id, record, case_store=self.store)
 
     def report_paths(self, case_id: str) -> dict[str, Path | None]:
         directory = self.settings.reports_dir / case_id

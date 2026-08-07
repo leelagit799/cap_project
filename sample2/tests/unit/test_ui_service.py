@@ -74,6 +74,48 @@ def test_save_review_persists_medication_corrections(tmp_path):
     assert [med["medicine_name"] for med in meds] == ["Azithromycin", "Paracetamol"]
 
 
+def test_save_review_reindexes_rag_index(tmp_path):
+    import hospital_ai.rag.store as rag_store_module
+    from hospital_ai.agents.agno.rag_agent import ClinicalRAGAgent
+    from hospital_ai.agents.gateway import LocalPromptGateway
+    from hospital_ai.rag.store import FaissStore
+    from hospital_ai.storage import CaseStore
+
+    rag_store_module._STORE = FaissStore(tmp_path / "vectors")
+
+    store = CaseStore(tmp_path / "cases.sqlite")
+    store.create_case("CASE-P1024", "P1024", "trace-p1024")
+    store.save_record(
+        "CASE-P1024",
+        {
+            "patient_id": "P1024",
+            "discharge_report": {
+                "patient_id": "P1024",
+                "patient_name": "Bram de Vries",
+                "medications": [{"medicine_name": "Amoxicilline", "strength": "500 mg"}],
+            },
+            "bill": {},
+        },
+    )
+
+    svc = DashboardService(store=store)
+    svc.save_review(
+        "CASE-P1024",
+        reviewer="clinician",
+        decision="edit",
+        corrections={
+            "discharge_report.medications": [
+                {"medicine_name": "Azithromycin", "strength": "500 mg"},
+            ]
+        },
+    )
+
+    agent = ClinicalRAGAgent(LocalPromptGateway())
+    chunks = agent.retrieval.retrieve("medications", top_k=3, patient_id="P1024")
+    assert any("Azithromycin" in chunk.text for chunk in chunks)
+    rag_store_module._STORE = None
+
+
 async def test_elicitation_accepts_supplied_answers():
     from hospital_ai.ui.service import _elicitation_handler
 

@@ -51,7 +51,9 @@ class IndexingAgent:
 
     def build_chunks(self, case_id: str, record: dict[str, Any]) -> list[Chunk]:
         """One chunk per clinical section, so citations point somewhere useful."""
-        patient_id = record.get("patient_id", "unknown")
+        from hospital_ai.rag.reindex import resolve_record_patient_id
+
+        patient_id = resolve_record_patient_id(record, case_id=case_id)
         discharge = record.get("discharge_report") or {}
         labs = record.get("lab_report") or {}
         bill = record.get("bill") or {}
