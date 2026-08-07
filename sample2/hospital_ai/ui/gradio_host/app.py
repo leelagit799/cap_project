@@ -161,7 +161,16 @@ def build_ui() -> gr.Blocks:
             def query(text: str) -> str:
                 if not text.strip():
                     return "Type a question first."
-                result = service.ask(text)
+                try:
+                    result = service.ask(text)
+                except Exception as exc:
+                    from hospital_ai.ui.service import unwrap_exception_group
+
+                    root = unwrap_exception_group(exc)
+                    return (
+                        f"Clinical Q&A could not complete: {root}. "
+                        "Process a patient first so records are indexed."
+                    )
                 triad = result["triad"]
                 sources = "\n".join(
                     f"- `{c['patient_id']}` {c['doc_type']}/{c['section']} "

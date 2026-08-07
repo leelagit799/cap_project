@@ -195,26 +195,17 @@ class DashboardService:
     def ask(
         self, question: str, patient_id: str | None = None, session_id: str = "dashboard"
     ) -> dict[str, Any]:
-        async def query(host: HostOrchestrator) -> dict[str, Any]:
-            answer = await host.rag.answer(
+        """Answer a clinical question via in-process RAG.
+
+        Q&A uses the local FAISS index and prompt templates. It does not open an
+        MCP session, so questions work even when ports 8200/8201 are down and we
+        avoid streamable-HTTP teardown errors that surface as ExceptionGroup.
+        """
+        return run_sync(
+            lambda: self._ask_local(
                 question, patient_id=patient_id, session_id=session_id
             )
-            return answer.model_dump(mode="json")
-
-        try:
-            return self._run(query)
-        except (Exception, asyncio.CancelledError) as exc:
-            if is_mcp_connection_error(exc):
-                _log.warning(
-                    "MCP unavailable; using local RAG path for dashboard Q&A",
-                    extra={"error": str(unwrap_exception_group(exc))},
-                )
-                return run_sync(
-                    lambda: self._ask_local(
-                        question, patient_id=patient_id, session_id=session_id
-                    )
-                )
-            raise
+        )
 
     def agent_health(self) -> dict[str, Any]:
         from hospital_ai.a2a.client import A2AClient

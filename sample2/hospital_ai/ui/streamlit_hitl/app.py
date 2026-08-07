@@ -639,12 +639,14 @@ def page_rag(svc: DashboardService) -> None:
         with st.spinner("Retrieving, augmenting, generating and reflecting…"):
             try:
                 answer = svc.ask(question, patient_id=patient_id)
-            except Exception as exc:
+            except BaseException as exc:
+                if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                    raise
                 root = unwrap_exception_group(exc)
                 st.error(
                     "Clinical Q&A could not complete. "
-                    f"{root}. Start the full stack with `python run.py` if MCP "
-                    "servers are not running."
+                    f"{root}. Process a patient first so records are indexed, "
+                    "or start the full stack with `python run.py`."
                 )
                 return
 

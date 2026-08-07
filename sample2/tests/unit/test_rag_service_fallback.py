@@ -61,13 +61,19 @@ class TestMcpConnectionHelpers:
 
 
 class TestDashboardAskFallback:
-    def test_ask_survives_without_mcp_servers(self, monkeypatch):
-        """Dashboard Q&A must not crash when MCP ports are down."""
+    def test_ask_uses_local_rag_without_mcp(self, monkeypatch):
+        """Dashboard Q&A must not open MCP sessions for any question."""
         monkeypatch.setenv("LLM_OFFLINE", "1")
 
-        result = DashboardService().ask("Any listed allergies?", patient_id="P1019")
-
-        assert "question" in result
-        assert "answer" in result
-        assert "triad" in result
-        assert result["prompt_source"] == "local:rag-answer-prompt"
+        questions = [
+            "What medications was this patient discharged on?",
+            "Are there any documented allergies?",
+            "What were the abnormal lab results?",
+        ]
+        svc = DashboardService()
+        for question in questions:
+            result = svc.ask(question, patient_id="P1019")
+            assert "question" in result
+            assert "answer" in result
+            assert "triad" in result
+            assert result["prompt_source"] == "local:rag-answer-prompt"
