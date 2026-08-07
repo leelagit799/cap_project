@@ -25,6 +25,7 @@ import pandas as pd
 import streamlit as st
 
 from hospital_ai.core.config import get_settings
+from hospital_ai.rag.formatting import mask_pii
 from hospital_ai.ui.service import DashboardService, elicitation_log, set_elicitation_answers
 from hospital_ai.ui.streamlit_hitl import theme
 from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
@@ -647,9 +648,7 @@ def page_rag(svc: DashboardService) -> None:
                 f'{answer["block_reason"]}</div>',
                 unsafe_allow_html=True,
             )
-        st.markdown(
-            f'<div class="df-chat a">{answer["answer"]}</div>', unsafe_allow_html=True
-        )
+        st.markdown(answer["answer"])
 
         triad = answer["triad"]
         st.markdown(
@@ -672,7 +671,7 @@ def page_rag(svc: DashboardService) -> None:
                         f'<span class="df-pill">score {chunk["score"]:.3f}</span>',
                         unsafe_allow_html=True,
                     )
-                    st.caption(chunk["text"][:600])
+                    st.caption(mask_pii(chunk["text"][:600]))
         st.divider()
 
 

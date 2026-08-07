@@ -23,6 +23,7 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.core.logging import get_logger
 from hospital_ai.core.schemas import OUT_OF_CONTEXT_ANSWER, RagAnswer, RagTriad
 from hospital_ai.guardrails import GuardrailManager
+from hospital_ai.rag.formatting import normalise_answer
 from hospital_ai.rag.roles import (
     AugmentationAgent,
     GenerationAgent,
@@ -194,6 +195,7 @@ class ClinicalRAGAgent:
             context = f"{context}\n\nConversation so far:\n{history}"
 
         answer_text, model = await self.generation.generate(question, context)
+        answer_text = normalise_answer(question, context, answer_text)
 
         toxicity = self.guardrails.check_toxicity(answer_text)
         if toxicity.blocked:
@@ -263,6 +265,7 @@ class ClinicalRAGAgent:
             yield {"type": "token", "text": token}
 
         answer_text = "".join(collected).strip()
+        answer_text = normalise_answer(question, context, answer_text)
         triad = await self.reflection.score_async(question, answer_text, reranked)
 
         if not triad.passes:

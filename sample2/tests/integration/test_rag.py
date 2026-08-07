@@ -122,11 +122,11 @@ class TestRetrievalAndAugmentation:
 
 
 class TestReflectionRole:
-    def test_refusal_scores_as_fully_faithful(self):
+    def test_refusal_scores_as_faithful(self):
         """Declining when the context lacks the answer asserts nothing false."""
         triad = ReflectionAgent().score("anything", OUT_OF_CONTEXT_ANSWER, [])
         assert triad.faithfulness == 1.0
-        assert triad.passes
+        assert triad.answer_relevance < 1.0
 
     def test_grounded_answer_passes_the_threshold(self):
         chunks = [
@@ -166,7 +166,8 @@ class TestAnswering:
                 "What medications were prescribed?", patient_id="P9999"
             )
 
-        assert answer.answer == OUT_OF_CONTEXT_ANSWER
+        assert OUT_OF_CONTEXT_ANSWER in answer.answer
+        assert "## Direct answer" in answer.answer
         assert answer.chunks == []
 
     async def test_prompt_injection_is_blocked_before_retrieval(self, tmp_path):
@@ -183,7 +184,32 @@ class TestAnswering:
             prompt = await agent.generation.prompt_for("some context")
 
         assert OUT_OF_CONTEXT_ANSWER in prompt
-        assert "only" in prompt.lower()
+        assert "## Direct answer" in prompt
+        assert "redacted" in prompt.lower() or "withheld" in prompt.lower()
+
+    async def test_answers_are_structured_and_redact_pii(self, tmp_path):
+        async with rag_agent(tmp_path) as (agent, extractor):
+            record = (await extractor.extract("P1019", "CASE-P1019"))["record"]
+            agent.index_case("CASE-P1019", record)
+            answer = await agent.answer(
+                "What medications was Thomas Wright discharged on?", patient_id="P1019"
+            )
+
+        assert "## Direct answer" in answer.answer
+        assert "62704" not in answer.answer
+        assert answer.triad.answer_relevance < 1.0 or answer.triad.context_relevance <= 1.0
+
+    async def test_irrelevant_question_scores_low_context_relevance(self, tmp_path):
+        async with rag_agent(tmp_path) as (agent, extractor):
+            record = (await extractor.extract("P1019", "CASE-P1019"))["record"]
+            agent.index_case("CASE-P1019", record)
+            answer = await agent.answer(
+                "What is the weather forecast for Amsterdam tomorrow?",
+                patient_id="P1019",
+            )
+
+        assert answer.triad.context_relevance < 0.25
+        assert answer.triad.answer_relevance < 0.6
 
     async def test_sessions_keep_only_the_last_three_turns(self, tmp_path):
         async with rag_agent(tmp_path) as (agent, _):

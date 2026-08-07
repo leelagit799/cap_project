@@ -15,7 +15,6 @@ grounding rules stay owned by the server.
 
 from __future__ import annotations
 
-import math
 import re
 from typing import Any, AsyncIterator
 
@@ -24,6 +23,7 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.core.logging import get_logger
 from hospital_ai.core.schemas import OUT_OF_CONTEXT_ANSWER, RagTriad, RetrievedChunk
 from hospital_ai.llm.gateway import LLMGateway, get_gateway
+from hospital_ai.rag.formatting import compose_structured_answer, normalise_answer, triad_from_overlap
 from hospital_ai.rag.store import Chunk, FaissStore, get_store
 
 _log = get_logger(__name__, component="agno-rag")
@@ -258,7 +258,13 @@ class GenerationAgent:
 
     async def generate(self, question: str, context: str) -> tuple[str, str]:
         if not context.strip():
-            return OUT_OF_CONTEXT_ANSWER, "none (no context retrieved)"
+            return normalise_answer(question, "", OUT_OF_CONTEXT_ANSWER), "none (no context retrieved)"
+
+        if self.llm.offline:
+            return (
+                compose_structured_answer(question, context),
+                "offline-structured",
+            )
 
         system = await self.prompt_for(context)
         completion = await self.llm.complete(
@@ -267,20 +273,26 @@ class GenerationAgent:
             model_hint="command-r-plus",
             temperature=0.0,
         )
-        return completion.text.strip(), completion.model
+        return normalise_answer(question, context, completion.text.strip()), completion.model
 
     async def stream(self, question: str, context: str) -> AsyncIterator[str]:
         if not context.strip():
-            yield OUT_OF_CONTEXT_ANSWER
+            yield normalise_answer(question, "", OUT_OF_CONTEXT_ANSWER)
+            return
+        if self.llm.offline:
+            yield compose_structured_answer(question, context)
             return
         system = await self.prompt_for(context)
+        collected: list[str] = []
         async for token in self.llm.stream(
             f"Clinical record context:\n{context}\n\nQuestion: {question}",
             system=system,
             model_hint="command-r-plus",
             temperature=0.0,
         ):
+            collected.append(token)
             yield token
+        # Streaming callers assemble tokens; normalisation happens in the agent.
 
 
 # --- Role 5: Reflection ------------------------------------------------------
@@ -294,10 +306,14 @@ Score three dimensions from 0.00 to 1.00:
   faithfulness      - is every claim in the answer supported by the context?
                       1.00 = fully grounded, 0.00 = fabricated
   answer_relevance  - does the answer address the question that was asked?
+                      Off-topic or evasive answers score below 0.30 even if polite.
   context_relevance - was the retrieved context relevant to the question?
+                      Irrelevant questions (e.g. weather, sports) against clinical
+                      records should score below 0.20.
 
 An answer that correctly declines because the context lacks the information is \
-fully faithful and scores 1.00 on faithfulness.
+faithful (1.00) but should have LOW answer_relevance and context_relevance when \
+the question itself is unrelated to clinical records.
 
 Reply with only three lines and no other text:
 faithfulness: <number>
@@ -334,9 +350,6 @@ class ReflectionAgent:
     ) -> RagTriad:
         if not answer.strip():
             return RagTriad()
-        if answer.strip() == OUT_OF_CONTEXT_ANSWER:
-            return RagTriad(faithfulness=1.0, answer_relevance=1.0, context_relevance=1.0)
-
         if self.llm.offline:
             return self.score(question, answer, chunks)
 
@@ -371,50 +384,28 @@ class ReflectionAgent:
     def score(
         self, question: str, answer: str, chunks: list[RetrievedChunk]
     ) -> RagTriad:
-        """Deterministic lexical fallback used when no LLM is reachable."""
+        """Deterministic lexical scorer used when no LLM judge is available."""
         if not answer.strip():
             return RagTriad()
 
-        if answer.strip() == OUT_OF_CONTEXT_ANSWER:
-            # Correctly refusing is maximally faithful: it asserts nothing that
-            # the context does not support.
-            return RagTriad(faithfulness=1.0, answer_relevance=1.0, context_relevance=1.0)
-
-        context_terms = set()
-        for chunk in chunks:
-            context_terms |= _keywords(chunk.text)
-        answer_terms = _keywords(answer)
-        question_terms = _keywords(question)
-
-        faithfulness = (
-            len(answer_terms & context_terms) / len(answer_terms) if answer_terms else 0.0
-        )
-        answer_relevance = (
-            len(answer_terms & question_terms) / len(question_terms) if question_terms else 0.0
-        )
-        context_relevance = (
-            len(context_terms & question_terms) / len(question_terms) if question_terms else 0.0
+        faithfulness, answer_relevance, context_relevance = triad_from_overlap(
+            question, answer, chunks
         )
 
         # Numbers, dates and drug names dominate clinical answers and are
-        # unlikely to be invented when they also appear verbatim in context, so
-        # exact-token agreement is weighted up.
+        # unlikely to be invented when they also appear verbatim in context.
         numerics = set(re.findall(r"\d+(?:\.\d+)?", answer))
-        context_numerics = set()
+        context_numerics: set[str] = set()
         for chunk in chunks:
             context_numerics |= set(re.findall(r"\d+(?:\.\d+)?", chunk.text))
-        if numerics:
+        if numerics and faithfulness > 0:
             grounded_numbers = len(numerics & context_numerics) / len(numerics)
-            faithfulness = 0.7 * faithfulness + 0.3 * grounded_numbers
+            faithfulness = round(min(1.0, 0.75 * faithfulness + 0.25 * grounded_numbers), 3)
 
-        # A grounded answer that paraphrases still shares only part of its
-        # vocabulary with the source, so raw overlap understates faithfulness.
-        # The square root lifts honest paraphrase above the 0.7 block threshold
-        # while still driving genuinely unsupported answers below it.
         return RagTriad(
-            faithfulness=round(min(1.0, math.sqrt(faithfulness)), 3),
-            answer_relevance=round(min(1.0, math.sqrt(answer_relevance)), 3),
-            context_relevance=round(min(1.0, context_relevance), 3),
+            faithfulness=faithfulness,
+            answer_relevance=answer_relevance,
+            context_relevance=context_relevance,
         )
 
     def thresholds(self) -> dict[str, float]:

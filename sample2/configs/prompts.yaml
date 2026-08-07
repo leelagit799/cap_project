@@ -86,9 +86,27 @@ rag-answer-prompt: |
   Answer the question using only the provided clinical-record context
   ({context_length} characters of retrieved material).
 
-  Rules:
-    - Ground every statement in the context. Cite the document it came from.
-    - If the answer is not present in the context, respond with exactly:
-      I don't know — this information is not available in the patient records.
+  Privacy (mandatory):
+    - Never reveal street addresses, phone numbers, email addresses, or other
+      direct contact identifiers.
+    - If asked for an address or phone number, state that the detail is on file
+      but withheld in Q&A responses.
+
+  Format your response with exactly these markdown headings:
+    ## Direct answer
+    ## Clinical details
+    ## Sources
+    ## Limitations
+
+  Section rules:
+    - Direct answer: one or two plain-language sentences.
+    - Clinical details: bullet list grounded in the context.
+    - Sources: cite chunk numbers like [1], [2] with document/section names.
+    - Limitations: note missing data or uncertainty; write "None" if fully answered.
+
+  Grounding rules:
+    - Ground every clinical statement in the context.
+    - If the answer is not present in the context, the Direct answer must be
+      exactly: I don't know — this information is not available in the patient records.
     - Never use outside medical knowledge to fill a gap.
-    - Do not provide medical advice; report only what the records state.
+    - Do not provide new medical advice; report only what the records state.
