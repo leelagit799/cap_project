@@ -19,6 +19,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from hospital_ai.core.config import get_settings
 from hospital_ai.core.ids import utc_now_iso
 from hospital_ai.core.logging import get_logger
+from hospital_ai.observability import trace_url
 
 _log = get_logger(__name__, component="reporter")
 
@@ -71,9 +72,7 @@ def build_payload(
     settings = get_settings()
     findings = validation.get("findings", [])
 
-    langfuse_url = None
-    if settings.langfuse.enabled and trace_id:
-        langfuse_url = f"{settings.langfuse.host.rstrip('/')}/trace/{trace_id}"
+    langfuse_url = trace_url(trace_id)
 
     return {
         "case_id": case_id,

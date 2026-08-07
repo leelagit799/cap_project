@@ -47,7 +47,7 @@ jinja2
 weasyprint
 
 # --- Observability ---
-langfuse
+langfuse>=4.0,<5
 
 # --- Configuration and data ---
 PyYAML==6.0.3

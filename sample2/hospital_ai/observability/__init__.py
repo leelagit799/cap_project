@@ -26,7 +26,6 @@ import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Iterator
 
 from hospital_ai.core.config import get_settings
@@ -39,6 +38,9 @@ _log = get_logger(__name__, component="observability")
 _REDACTOR = PIIRedactor()
 _WRITE_LOCK = threading.Lock()
 
+#: Required by Langfuse v4 when attaching observations to a predetermined trace id.
+_ROOT_PARENT_SPAN_ID = "fedcba0987654321"
+
 
 def _redact(payload: Any) -> Any:
     """Mask direct identifiers before a payload leaves the process."""
@@ -49,6 +51,16 @@ def _redact(payload: Any) -> Any:
     if isinstance(payload, list):
         return [_redact(item) for item in payload]
     return payload
+
+
+def _as_type(kind: str) -> str:
+    """Map internal span kinds to Langfuse observation types."""
+    return {
+        "agent": "agent",
+        "tool": "tool",
+        "generation": "generation",
+        "guardrail": "guardrail",
+    }.get(kind, "span")
 
 
 @dataclass
@@ -94,15 +106,67 @@ class Tracer:
 
         if self._client is not None:
             try:
-                self._root = self._client.start_span(
+                self._root = self._client.start_observation(
                     name=f"discharge-case:{case_id or trace_id}",
-                    input={"case_id": case_id, "patient_id": patient_id},
-                    metadata={"trace_id": trace_id},
+                    trace_context={
+                        "trace_id": trace_id,
+                        "parent_span_id": _ROOT_PARENT_SPAN_ID,
+                    },
+                    input=_redact({"case_id": case_id, "patient_id": patient_id}),
+                    metadata={"trace_id": trace_id, "case_id": case_id},
                 )
             except Exception as exc:  # noqa: BLE001 - tracing must never break a case
-                _log.warning("LangFuse root span failed", extra={"error": str(exc)})
+                _log.warning("LangFuse root observation failed", extra={"error": str(exc)})
 
     # --- emission ------------------------------------------------------------
+
+    def _emit_langfuse(self, record: SpanRecord) -> None:
+        if self._client is None:
+            return
+
+        metadata = {**record.metadata, "kind": record.kind, "trace_id": self.trace_id}
+        if record.duration_ms is not None:
+            metadata["duration_ms"] = record.duration_ms
+
+        kwargs: dict[str, Any] = {
+            "name": record.name,
+            "as_type": _as_type(record.kind),
+            "input": record.input,
+            "metadata": metadata,
+        }
+        if record.kind == "generation":
+            kwargs["model"] = record.metadata.get("model")
+            usage: dict[str, int] = {}
+            if record.metadata.get("prompt_tokens") is not None:
+                usage["input"] = int(record.metadata["prompt_tokens"])
+            if record.metadata.get("completion_tokens") is not None:
+                usage["output"] = int(record.metadata["completion_tokens"])
+            if usage:
+                kwargs["usage_details"] = usage
+
+        try:
+            if self._root is not None:
+                observation = self._root.start_observation(**kwargs)
+            else:
+                observation = self._client.start_observation(
+                    **kwargs,
+                    trace_context={
+                        "trace_id": self.trace_id,
+                        "parent_span_id": _ROOT_PARENT_SPAN_ID,
+                    },
+                )
+
+            update_kwargs: dict[str, Any] = {"output": record.output}
+            if record.error:
+                update_kwargs["level"] = "ERROR"
+                update_kwargs["status_message"] = record.error
+            observation.update(**update_kwargs)
+            observation.end()
+        except Exception as exc:  # noqa: BLE001 - never fail a case over telemetry
+            _log.warning(
+                "LangFuse observation emit failed",
+                extra={"span": record.name, "error": str(exc)},
+            )
 
     def _emit(self, record: SpanRecord) -> None:
         self.spans.append(record)
@@ -112,20 +176,7 @@ class Tracer:
         with _WRITE_LOCK, self._sink.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, default=str, ensure_ascii=False) + "\n")
 
-        if self._client is None:
-            return
-        try:
-            span = self._client.start_span(
-                name=record.name,
-                input=record.input,
-                metadata={**record.metadata, "kind": record.kind, "trace_id": self.trace_id},
-            )
-            span.update(output=record.output)
-            if record.error:
-                span.update(level="ERROR", status_message=record.error)
-            span.end()
-        except Exception as exc:  # noqa: BLE001 - never fail a case over telemetry
-            _log.debug("LangFuse span emit failed", extra={"error": str(exc)})
+        self._emit_langfuse(record)
 
     @contextmanager
     def span(
@@ -260,9 +311,7 @@ class Tracer:
 
     @property
     def url(self) -> str | None:
-        if not self._settings.langfuse.enabled:
-            return None
-        return f"{self._settings.langfuse.host.rstrip('/')}/trace/{self.trace_id}"
+        return trace_url(self.trace_id)
 
 
 #: Rough Bedrock per-1K-token pricing, used only for the cost estimate the
@@ -304,16 +353,40 @@ def _get_client():
     try:
         from langfuse import Langfuse
 
-        _CLIENT = Langfuse(
+        client = Langfuse(
             public_key=settings.langfuse.public_key,
             secret_key=settings.langfuse.secret_key,
             host=settings.langfuse.host,
         )
+        if not client.auth_check():
+            _log.warning(
+                "LangFuse auth_check failed; verify LANGFUSE_PUBLIC_KEY, "
+                "LANGFUSE_SECRET_KEY and LANGFUSE_HOST. Falling back to JSONL only."
+            )
+            return None
+
+        _CLIENT = client
         _log.info("LangFuse client ready", extra={"host": settings.langfuse.host})
     except Exception as exc:  # noqa: BLE001 - fall back to the JSONL sink
         _log.warning("LangFuse unavailable; using JSONL sink", extra={"error": str(exc)})
         _CLIENT = None
     return _CLIENT
+
+
+def trace_url(trace_id: str | None) -> str | None:
+    """Return a Langfuse dashboard URL for a trace id when credentials are valid."""
+    if not trace_id:
+        return None
+    settings = get_settings()
+    if not settings.langfuse.enabled:
+        return None
+    client = _get_client()
+    if client is not None:
+        try:
+            return client.get_trace_url(trace_id=trace_id)
+        except Exception:  # noqa: BLE001 - fall back to a generic link
+            pass
+    return f"{settings.langfuse.host.rstrip('/')}/trace/{trace_id}"
 
 
 def flush() -> None:
@@ -330,4 +403,4 @@ def reset_client() -> None:
     _CLIENT, _CLIENT_READY = None, False
 
 
-__all__ = ["SpanRecord", "Tracer", "flush", "reset_client"]
+__all__ = ["SpanRecord", "Tracer", "flush", "reset_client", "trace_url"]
