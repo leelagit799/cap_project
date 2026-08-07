@@ -223,7 +223,16 @@ async def validate_completeness(
                 missing_nonblocking.append(field)
 
     discharge = packet.get(DocType.DISCHARGE_REPORT.value) or {}
-    prescription_issues = check_prescriptions(discharge.get("medications") or [])
+    medications = discharge.get("medications") or []
+    prescription_spec = DOCUMENT_REQUIREMENTS["prescription"]
+    for med in medications:
+        total_required += len(prescription_spec["required"])
+        missing_cols = [
+            field for field in prescription_spec["required"] if _is_missing(med.get(field))
+        ]
+        total_present += len(prescription_spec["required"]) - len(missing_cols)
+
+    prescription_issues = check_prescriptions(medications)
     for issue in prescription_issues:
         findings.append(
             _finding(
@@ -331,20 +340,40 @@ def _apply_elicited_values(
 
 def refresh_resolved_findings(packet: dict[str, Any], findings: list[dict[str, Any]]) -> None:
     """Mark completeness findings resolved when the packet now satisfies them."""
+    discharge = packet.get(DocType.DISCHARGE_REPORT.value) or {}
+    medications = discharge.get("medications") or []
+    prescription_issues = {
+        issue["row"]: issue for issue in check_prescriptions(medications)
+    }
+
     for finding in findings:
         if finding.get("resolved"):
             continue
         rule_id = str(finding.get("rule_id", ""))
-        if not rule_id.startswith("missing_field."):
+        if rule_id.startswith("missing_field."):
+            parts = rule_id.split(".", 2)
+            if len(parts) != 3:
+                continue
+            _, doc_type, field = parts
+            document = packet.get(doc_type)
+            if isinstance(document, dict) and not _is_missing(document.get(field)):
+                finding["resolved"] = True
+                finding["resolution_note"] = "Field present after HITL correction."
             continue
-        parts = rule_id.split(".", 2)
-        if len(parts) != 3:
+
+        if rule_id != "incomplete_prescription_fields":
             continue
-        _, doc_type, field = parts
-        document = packet.get(doc_type)
-        if isinstance(document, dict) and not _is_missing(document.get(field)):
+
+        field_ref = str(finding.get("field") or "")
+        row_number = None
+        if field_ref.startswith("medications[") and field_ref.endswith("]"):
+            try:
+                row_number = int(field_ref[len("medications[") : -1])
+            except ValueError:
+                row_number = None
+        if row_number is not None and row_number not in prescription_issues:
             finding["resolved"] = True
-            finding["resolution_note"] = "Field present after HITL correction."
+            finding["resolution_note"] = "Prescription row complete after HITL correction."
 
 
 def register(mcp) -> None:

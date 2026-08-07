@@ -22,3 +22,37 @@ def test_refresh_resolved_findings_closes_address_gap():
     refresh_resolved_findings(packet, findings)
 
     assert findings[0]["resolved"] is True
+
+
+def test_refresh_resolved_findings_closes_prescription_warning_gap():
+    packet = {
+        "discharge_report": {
+            "medications": [
+                {
+                    "sl_no": 1,
+                    "medicine_name": "Metformin",
+                    "strength": "500 mg",
+                    "dosage": "1 tab",
+                    "frequency": "BID",
+                    "route": "ORAL",
+                    "period": "30 days",
+                    "remarks": "With meals",
+                    "total_quantity": "60",
+                }
+            ]
+        },
+        "lab_report": {},
+        "bill": {},
+    }
+    findings = [
+        {
+            "rule_id": "incomplete_prescription_fields",
+            "field": "medications[1]",
+            "resolved": False,
+            "blocking": False,
+        }
+    ]
+
+    refresh_resolved_findings(packet, findings)
+
+    assert findings[0]["resolved"] is True

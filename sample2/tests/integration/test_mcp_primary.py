@@ -372,6 +372,24 @@ class TestElicitationPrimitive:
         assert payload["elicitation"] is None
         assert payload["completeness_score"] == 100.0
 
+    async def test_prescription_warning_fields_reduce_completeness_score(self):
+        packet = json.loads(json.dumps(PACKET_WITH_SOFT_GAPS))
+        packet["discharge_report"]["address"] = "14 Nehru Road, Pune"
+        packet["discharge_report"]["medications"][0].pop("remarks")
+        packet["discharge_report"]["medications"][0].pop("period")
+        async with create_connected_server_and_client_session(
+            create_server()._mcp_server,
+            elicitation_callback=elicitation_callback("decline"),
+        ) as client:
+            result = await client.call_tool("clinical_rules_engine", {"packet": packet})
+            payload = json.loads(result.content[0].text)
+
+        assert payload["completeness_score"] < 100.0
+        assert any(
+            f["rule_id"] == "incomplete_prescription_fields" and f["severity"] == "warning"
+            for f in payload["findings"]
+        )
+
 
 # --- Resources ---------------------------------------------------------------
 

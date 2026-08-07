@@ -27,7 +27,9 @@ import streamlit as st
 from hospital_ai.core.config import get_settings
 from hospital_ai.rag.formatting import mask_pii
 from hospital_ai.ui.hitl_corrections import (
+    apply_medication_suggestion,
     corrections_from_elicitation,
+    medication_correction_suggestions,
     merge_corrections,
     normalize_medication_rows,
 )
@@ -328,7 +330,7 @@ def page_validation(svc: DashboardService) -> None:
         theme.metrics_row(
             [
                 ("Risk level", validation["risk_level"], f"score {validation['risk_score']}"),
-                ("Completeness", f"{validation['completeness_score']}%", "of required fields"),
+                ("Completeness", f"{validation['completeness_score']}%", "required + prescription fields"),
                 (
                     "Translation",
                     f"{validation['translation_confidence']:.2f}"
@@ -439,9 +441,19 @@ def page_corrections(svc: DashboardService) -> None:
     discharge = record.get("discharge_report") or {}
     bill = record.get("bill") or {}
     corrections: dict[str, Any] = {}
+    validation = svc.validation(case["case_id"]) or {}
+
+    pending_key = f"pending-med-corrections-{case['case_id']}"
+    if pending_key not in st.session_state:
+        st.session_state[pending_key] = None
 
     st.markdown("#### Medications")
-    medications = pd.DataFrame(discharge.get("medications") or [])
+    source_medications = (
+        st.session_state[pending_key]
+        or discharge.get("medications")
+        or []
+    )
+    medications = pd.DataFrame(source_medications)
     if not medications.empty:
         columns = [
             c for c in
@@ -456,10 +468,46 @@ def page_corrections(svc: DashboardService) -> None:
             key="medication-editor",
         )
         normalized = normalize_medication_rows(edited.to_dict("records"))
-        original = normalize_medication_rows(medications[columns].to_dict("records"))
+        original = normalize_medication_rows(source_medications)
         if normalized != original:
             corrections["discharge_report.medications"] = normalized
+            st.session_state[pending_key] = normalized
             st.caption("Medication table has unsaved edits.")
+    else:
+        normalized = []
+        st.caption("No medications on the discharge report yet.")
+
+    suggestions = medication_correction_suggestions(
+        validation.get("findings") or [],
+        normalized or normalize_medication_rows(source_medications),
+    )
+    if suggestions:
+        st.markdown("#### Medication correction suggestions")
+        st.caption(
+            "Based on the validation report. Apply a suggestion or edit the table above manually."
+        )
+        for index, suggestion in enumerate(suggestions):
+            columns = st.columns([4, 1])
+            with columns[0]:
+                st.info(f"**{suggestion['title']}**\n\n{suggestion['detail']}")
+            with columns[1]:
+                action = suggestion.get("action")
+                if action and st.button(
+                    "Apply",
+                    key=f"med-suggestion-{case['case_id']}-{index}",
+                    use_container_width=True,
+                ):
+                    current_rows = corrections.get(
+                        "discharge_report.medications",
+                        normalized or normalize_medication_rows(source_medications),
+                    )
+                    updated = apply_medication_suggestion(current_rows, action)
+                    st.session_state[pending_key] = updated
+                    corrections["discharge_report.medications"] = updated
+                    st.toast("Medication suggestion applied", icon="💊")
+                    st.rerun()
+    elif validation.get("findings"):
+        st.caption("No medication-specific correction suggestions for this validation run.")
 
     st.markdown("#### Demographics and billing")
     left, right = st.columns(2)
@@ -512,7 +560,6 @@ def page_corrections(svc: DashboardService) -> None:
         "validation runs. Leaving a field empty declines the request, which sends "
         "the gap to human review."
     )
-    validation = svc.validation(case["case_id"]) or {}
     requested: list[str] = []
     for record_entry in validation.get("elicitations") or []:
         requested.extend(record_entry.get("fields_requested") or [])
@@ -559,6 +606,7 @@ def page_corrections(svc: DashboardService) -> None:
         if st.button("🔄 Re-run validation", type="primary", use_container_width=True):
             with st.spinner("Applying corrections and re-validating…"):
                 outcome = svc.revalidate(case["case_id"], corrections or None)
+            st.session_state[pending_key] = None
             refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Validation re-run", icon="🔄")
             if outcome["requires_hitl"]:
