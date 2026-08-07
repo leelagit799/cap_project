@@ -203,6 +203,28 @@ class TestPersistence:
 
         assert "bill_settlement_check" not in {f.rule_id for f in rerun.validation.findings}
 
+    async def test_p1021_hitl_corrections_clear_high_risk(self, tmp_path):
+        """All documented P1021 gaps must drop the score out of the High band."""
+        async with orchestrator(tmp_path) as host:
+            outcome = await host.process_patient("P1021")
+            assert outcome.validation.risk_score >= 8
+
+            rerun = await host.revalidate(
+                outcome.case_id,
+                {
+                    "discharge_report.address": "14 Lakeview Road, Mumbai, MH 400001",
+                    "discharge_report.follow_up_appointments": [
+                        "Endocrinology follow-up on 2026-07-02 with Dr. Kapoor"
+                    ],
+                    "bill.payment_status": "PAID",
+                },
+            )
+
+        assert rerun.validation.risk_score == 0
+        assert rerun.validation.risk_level.value == "Low"
+        assert rerun.requires_hitl is False
+        assert rerun.validation.findings == []
+
     async def test_hitl_review_is_recorded(self, tmp_path):
         async with orchestrator(tmp_path) as host:
             outcome = await host.process_patient("P1022")

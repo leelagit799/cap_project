@@ -25,6 +25,7 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.core.logging import get_logger
 from hospital_ai.mcp_servers.client import MultiServerMCPClient
 from hospital_ai.storage import CaseStore, get_store
+from hospital_ai.ui.hitl_corrections import corrections_from_elicitation, merge_corrections
 
 _log = get_logger(__name__, component="ui-service")
 
@@ -128,7 +129,11 @@ class DashboardService:
         return [outcome.to_dict() for outcome in outcomes]
 
     def revalidate(self, case_id: str, corrections: dict[str, Any] | None = None) -> dict[str, Any]:
-        outcome = self._run(lambda host: host.revalidate(case_id, corrections))
+        merged = merge_corrections(
+            corrections,
+            corrections_from_elicitation(_PENDING_ELICITATION),
+        )
+        outcome = self._run(lambda host: host.revalidate(case_id, merged or None))
         return outcome.to_dict()
 
     def summary_events(self, case_id: str) -> list[dict[str, Any]]:
