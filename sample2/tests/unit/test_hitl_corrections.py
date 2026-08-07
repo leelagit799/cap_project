@@ -8,6 +8,7 @@ from hospital_ai.ui.hitl_corrections import (
     medication_correction_suggestions,
     medication_corrections_if_changed,
     merge_corrections,
+    merge_medication_name_edits,
     normalize_medication_rows,
 )
 
@@ -109,3 +110,20 @@ class TestHitlCorrections:
     def test_medication_corrections_if_changed_ignores_session_only_noise(self):
         rows = [{"medicine_name": "Metformin", "strength": "500 mg"}]
         assert medication_corrections_if_changed(rows, rows) == {}
+
+    def test_merge_medication_name_edits_preserves_stored_fields(self):
+        stored = [
+            {
+                "medicine_name": "Amoxicilline",
+                "strength": "500 mg",
+                "dosage": "1 tab",
+                "frequency": "TID",
+            }
+        ]
+        merged = merge_medication_name_edits(
+            stored,
+            [{"medicine_name": "Azithromycin"}],
+        )
+        assert merged[0]["medicine_name"] == "Azithromycin"
+        assert merged[0]["strength"] == "500 mg"
+        assert merged[0]["frequency"] == "TID"

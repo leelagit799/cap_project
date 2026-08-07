@@ -32,6 +32,7 @@ from hospital_ai.ui.hitl_corrections import (
     medication_correction_suggestions,
     medication_corrections_if_changed,
     merge_corrections,
+    merge_medication_name_edits,
     normalize_medication_rows,
 )
 from hospital_ai.ui.service import (
@@ -455,33 +456,37 @@ def page_corrections(svc: DashboardService) -> None:
         st.session_state[pending_key] = None
 
     st.markdown("#### Medications")
+    st.caption("Edit medicine names only — strength, dose and route stay on the saved record.")
     source_medications = st.session_state[pending_key] or stored_medications
-    med_columns = [
-        "sl_no", "medicine_name", "strength", "dosage", "frequency", "route",
-        "period", "remarks", "total_quantity",
-    ]
+    med_columns = ["medicine_name"]
     medications = pd.DataFrame(source_medications)
     if medications.empty:
         medications = pd.DataFrame(columns=med_columns)
-    else:
-        for column in med_columns:
-            if column not in medications.columns:
-                medications[column] = None
+    elif "medicine_name" not in medications.columns:
+        medications["medicine_name"] = None
     edited = st.data_editor(
         medications[med_columns],
         use_container_width=True,
         num_rows="dynamic",
         key=f"medication-editor-{case['case_id']}",
+        column_config={
+            "medicine_name": st.column_config.TextColumn("Medicine name", required=True),
+        },
     )
-    normalized = normalize_medication_rows(edited.to_dict("records"))
-    corrections.update(medication_corrections_if_changed(stored_medications, normalized))
+    merged_medications = merge_medication_name_edits(
+        stored_medications,
+        edited.to_dict("records"),
+    )
+    corrections.update(
+        medication_corrections_if_changed(stored_medications, merged_medications)
+    )
     if corrections.get("discharge_report.medications"):
         st.session_state[pending_key] = corrections["discharge_report.medications"]
         st.caption("Medication table has unsaved edits.")
 
     suggestions = medication_correction_suggestions(
         validation.get("findings") or [],
-        normalized,
+        merged_medications,
     )
     if suggestions:
         st.markdown("#### Medication correction suggestions")
@@ -499,7 +504,10 @@ def page_corrections(svc: DashboardService) -> None:
                     key=f"med-suggestion-{case['case_id']}-{index}",
                     use_container_width=True,
                 ):
-                    current_rows = corrections.get("discharge_report.medications", normalized)
+                    current_rows = corrections.get(
+                        "discharge_report.medications",
+                        merged_medications,
+                    )
                     updated = apply_medication_suggestion(current_rows, action)
                     st.session_state[pending_key] = updated
                     st.toast("Medication suggestion applied", icon="💊")

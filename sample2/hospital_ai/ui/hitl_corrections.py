@@ -97,14 +97,35 @@ def merge_corrections(*parts: dict[str, Any] | None) -> dict[str, Any]:
 
 def medication_corrections_if_changed(
     stored: list[dict[str, Any]] | None,
-    current: list[dict[str, Any]] | None,
+    edited: list[dict[str, Any]] | None,
 ) -> dict[str, Any]:
     """Return a correction payload when the editor differs from the saved record."""
     stored_norm = normalize_medication_rows(stored or [])
-    current_norm = normalize_medication_rows(current or [])
+    current_norm = merge_medication_name_edits(stored_norm, edited or [])
     if current_norm != stored_norm:
         return {"discharge_report.medications": current_norm}
     return {}
+
+
+def merge_medication_name_edits(
+    stored: list[dict[str, Any]] | None,
+    edited: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Apply medicine-name edits from the HITL table onto the stored prescription rows."""
+    stored_norm = normalize_medication_rows(stored or [])
+    edited_norm = normalize_medication_rows(edited or [])
+    merged: list[dict[str, Any]] = []
+    for index, edited_row in enumerate(edited_norm):
+        base = dict(stored_norm[index]) if index < len(stored_norm) else {}
+        if edited_row.get("medicine_name"):
+            base["medicine_name"] = edited_row["medicine_name"]
+        for key, value in edited_row.items():
+            if key == "medicine_name" or value in (None, ""):
+                continue
+            base[key] = value
+        if base.get("medicine_name"):
+            merged.append(base)
+    return normalize_medication_rows(merged)
 
 
 def _canonical_name(name: str) -> str:
