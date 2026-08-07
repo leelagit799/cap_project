@@ -598,7 +598,9 @@ def page_corrections(svc: DashboardService) -> None:
                 notes=notes,
             )
             st.session_state[pending_key] = None
-            st.session_state.setdefault("rag_refresh_patients", set()).add(case["patient_id"])
+            refreshed = st.session_state.setdefault("rag_refresh_patients", [])
+            if case["patient_id"] not in refreshed:
+                refreshed.append(case["patient_id"])
             st.toast("Review saved", icon="💾")
             st.success("Feedback recorded and corrections saved to the case record.")
             st.rerun()
@@ -608,7 +610,9 @@ def page_corrections(svc: DashboardService) -> None:
             with st.spinner("Applying corrections and re-validating…"):
                 outcome = svc.revalidate(case["case_id"], corrections)
             st.session_state[pending_key] = None
-            st.session_state.setdefault("rag_refresh_patients", set()).add(case["patient_id"])
+            refreshed = st.session_state.setdefault("rag_refresh_patients", [])
+            if case["patient_id"] not in refreshed:
+                refreshed.append(case["patient_id"])
             refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Validation re-run", icon="🔄")
             if outcome["requires_hitl"]:
@@ -685,17 +689,27 @@ def page_rag(svc: DashboardService) -> None:
         default_index = options.index(default_patient) if default_patient in options else 0
         patient_filter = st.selectbox("Patient filter", options, index=default_index)
     patient_id = None if patient_filter == "All patients" else patient_filter
+    active_case_id = None
+    if active and patient_id and active.get("patient_id") == patient_id:
+        active_case_id = active.get("case_id")
+    elif active and not patient_id:
+        active_case_id = active.get("case_id")
+        patient_id = active.get("patient_id")
 
     if patient_id:
-        refresh_patients = st.session_state.setdefault("rag_refresh_patients", set())
+        refresh_patients = st.session_state.setdefault("rag_refresh_patients", [])
         if patient_id in refresh_patients:
-            cases_for_patient = svc.cases(patient_id=patient_id)
-            if cases_for_patient:
+            case_id = active_case_id or (
+                svc.cases(patient_id=patient_id)[0]["case_id"]
+                if svc.cases(patient_id=patient_id)
+                else None
+            )
+            if case_id:
                 try:
-                    svc.reindex_case(cases_for_patient[0]["case_id"])
+                    svc.reindex_case(case_id)
                 except KeyError:
                     pass
-            refresh_patients.discard(patient_id)
+            refresh_patients.remove(patient_id)
             st.session_state["rag_history"] = []
             st.info(
                 "HITL corrections were saved for this patient. "
@@ -728,7 +742,11 @@ def page_rag(svc: DashboardService) -> None:
     if st.button("Ask", type="primary") and question.strip():
         with st.spinner("Retrieving, augmenting, generating and reflecting…"):
             try:
-                answer = svc.ask(question, patient_id=patient_id)
+                answer = svc.ask(
+                    question,
+                    patient_id=patient_id,
+                    case_id=active_case_id,
+                )
             except BaseException as exc:
                 if isinstance(exc, (KeyboardInterrupt, SystemExit)):
                     raise

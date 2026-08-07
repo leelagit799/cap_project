@@ -41,7 +41,9 @@ def reindex_case_record(
 ) -> dict[str, Any]:
     """Index (or replace) all RAG chunks for one corrected case record."""
     payload = dict(record)
-    payload["patient_id"] = resolve_record_patient_id(
-        payload, case_id=case_id, store=case_store
-    )
-    return IndexingAgent(store=store or get_store()).index_case(case_id, payload)
+    patient_id = resolve_record_patient_id(payload, case_id=case_id, store=case_store)
+    payload["patient_id"] = patient_id
+    vector_store = store or get_store()
+    if patient_id != "unknown":
+        vector_store.remove_patient(patient_id)
+    return IndexingAgent(store=vector_store).index_case(case_id, payload)

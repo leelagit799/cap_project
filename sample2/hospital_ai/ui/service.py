@@ -157,10 +157,15 @@ class DashboardService:
         *,
         patient_id: str | None,
         session_id: str,
+        case_id: str | None = None,
     ) -> dict[str, Any]:
         """Answer via in-process RAG when MCP servers are unreachable."""
         from hospital_ai.agents.agno.rag_agent import ClinicalRAGAgent
         from hospital_ai.rag.store import get_store as get_vector_store
+
+        resolved_case_id = case_id or self._resolve_case_id(patient_id=patient_id)
+        if resolved_case_id:
+            self.reindex_case(resolved_case_id)
 
         agent = ClinicalRAGAgent(LocalPromptGateway(), store=get_vector_store())
         answer = await agent.answer(
@@ -189,10 +194,7 @@ class DashboardService:
             corrections_from_elicitation(_PENDING_ELICITATION),
         )
         outcome = self._run(lambda host: host.revalidate(case_id, merged or None))
-        # Host re-indexes during revalidate; refresh again from the UI store so
-        # the local in-process RAG path always matches the saved record.
-        if merged:
-            self.reindex_case(case_id)
+        self.reindex_case(case_id)
         return outcome.to_dict()
 
     def summary_events(self, case_id: str) -> list[dict[str, Any]]:
@@ -202,7 +204,12 @@ class DashboardService:
         return self._run(collect)
 
     def ask(
-        self, question: str, patient_id: str | None = None, session_id: str = "dashboard"
+        self,
+        question: str,
+        patient_id: str | None = None,
+        session_id: str = "dashboard",
+        *,
+        case_id: str | None = None,
     ) -> dict[str, Any]:
         """Answer a clinical question via in-process RAG.
 
@@ -212,7 +219,10 @@ class DashboardService:
         """
         return run_sync(
             lambda: self._ask_local(
-                question, patient_id=patient_id, session_id=session_id
+                question,
+                patient_id=patient_id,
+                session_id=session_id,
+                case_id=case_id,
             )
         )
 
@@ -271,6 +281,19 @@ class DashboardService:
         if record is None:
             raise KeyError(f"No record stored for {case_id}")
         return reindex_case_record(case_id, record, case_store=self.store)
+
+    def _resolve_case_id(
+        self,
+        *,
+        patient_id: str | None = None,
+        case_id: str | None = None,
+    ) -> str | None:
+        if case_id:
+            return case_id
+        if not patient_id:
+            return None
+        cases = self.store.list_cases(patient_id=patient_id)
+        return cases[0]["case_id"] if cases else None
 
     def report_paths(self, case_id: str) -> dict[str, Path | None]:
         directory = self.settings.reports_dir / case_id

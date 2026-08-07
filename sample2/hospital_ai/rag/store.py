@@ -176,6 +176,25 @@ class FaissStore:
                 conn.commit()
             self._persist()
 
+    def remove_patient(self, patient_id: str) -> int:
+        """Drop every indexed chunk for a patient (e.g. before a HITL re-index)."""
+        import numpy as np
+
+        with self._lock, sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT row_id FROM chunks WHERE patient_id = ?", (patient_id,)
+            ).fetchall()
+            if not rows:
+                return 0
+            row_ids = np.array([row[0] for row in rows], dtype="int64")
+            self.index.remove_ids(row_ids)
+            conn.execute("DELETE FROM chunks WHERE patient_id = ?", (patient_id,))
+            conn.commit()
+
+        self._persist()
+        _log.info("patient chunks removed", extra={"patient_id": patient_id, "count": len(rows)})
+        return len(rows)
+
     # --- reads ---------------------------------------------------------------
 
     @property
