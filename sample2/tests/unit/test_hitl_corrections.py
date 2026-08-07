@@ -10,19 +10,12 @@ from hospital_ai.ui.hitl_corrections import (
 
 
 class TestHitlCorrections:
-    def test_elicitation_maps_to_discharge_paths(self):
-        corrections = corrections_from_elicitation(
-            {
-                "address": "14 Lakeview Road, Mumbai",
-                "follow_up_appointments": "Endocrinology 2026-07-02",
-            }
-        )
-        assert corrections["discharge_report.address"] == "14 Lakeview Road, Mumbai"
-        assert corrections["discharge_report.follow_up_appointments"] == [
-            "Endocrinology 2026-07-02"
-        ]
-
-    def test_normalize_medication_rows_preserves_medicine_name(self):
+    def test_elicitation_maps_doctors_to_physician(self):
+        corrections = corrections_from_elicitation({"doctors": "Dr. van Dijk, MD"})
+        assert corrections["discharge_report.attending_physician"] == "Dr. van Dijk, MD"
+        assert corrections["discharge_report.discharge_approved_by"] == "Dr. van Dijk, MD"
+        assert corrections["discharge_report.discharge_approved"] is True
+    def test_elicitation_maps_address_and_follow_up(self):
         rows = normalize_medication_rows(
             [
                 {

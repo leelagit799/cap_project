@@ -467,6 +467,21 @@ def page_corrections(svc: DashboardService) -> None:
         if age and age != str(discharge.get("age") or ""):
             corrections["discharge_report.age"] = int(age) if age.isdigit() else age
 
+        physician = st.text_input(
+            "Attending / approving physician",
+            discharge.get("attending_physician")
+            or discharge.get("discharge_approved_by")
+            or "",
+            placeholder="e.g. Dr. van Dijk, MD",
+        )
+        current_physician = discharge.get("attending_physician") or discharge.get("discharge_approved_by") or ""
+        if physician and physician != current_physician:
+            corrections["discharge_report.attending_physician"] = physician
+            corrections["discharge_report.discharge_approved_by"] = physician
+            corrections["discharge_report.discharge_approved"] = True
+        elif physician and not discharge.get("discharge_approved"):
+            corrections["discharge_report.discharge_approved"] = True
+
     with right:
         options = ["PAID", "UNPAID", "PARTIAL", "INSURANCE_GUARANTEED", "UNKNOWN"]
         current = bill.get("payment_status", "UNKNOWN")

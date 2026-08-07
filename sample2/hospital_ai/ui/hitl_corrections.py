@@ -68,6 +68,11 @@ def corrections_from_elicitation(answers: dict[str, Any]) -> dict[str, Any]:
                 corrections["discharge_report.age"] = (
                     int(cleaned) if str(cleaned).isdigit() else cleaned
                 )
+            elif field == "doctors":
+                physician = cleaned[0] if isinstance(cleaned, list) else str(cleaned)
+                corrections["discharge_report.attending_physician"] = physician
+                corrections["discharge_report.discharge_approved_by"] = physician
+                corrections["discharge_report.discharge_approved"] = True
             else:
                 corrections[f"discharge_report.{field}"] = cleaned
     return corrections
