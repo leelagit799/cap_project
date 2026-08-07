@@ -249,6 +249,13 @@ class DashboardService:
         return self.store.stats()
 
     def save_review(self, case_id: str, **kwargs: Any) -> None:
+        corrections = merge_corrections(
+            kwargs.get("corrections"),
+            corrections_from_elicitation(_PENDING_ELICITATION),
+        )
+        if corrections:
+            self.store.apply_corrections(case_id, corrections)
+            kwargs = {**kwargs, "corrections": corrections}
         self.store.save_review(case_id, **kwargs)
 
     def report_paths(self, case_id: str) -> dict[str, Path | None]:

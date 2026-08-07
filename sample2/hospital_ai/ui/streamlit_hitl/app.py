@@ -30,6 +30,7 @@ from hospital_ai.ui.hitl_corrections import (
     apply_medication_suggestion,
     corrections_from_elicitation,
     medication_correction_suggestions,
+    medication_corrections_if_changed,
     merge_corrections,
     normalize_medication_rows,
 )
@@ -444,42 +445,43 @@ def page_corrections(svc: DashboardService) -> None:
     validation = svc.validation(case["case_id"]) or {}
 
     pending_key = f"pending-med-corrections-{case['case_id']}"
+    stored_medications = normalize_medication_rows(discharge.get("medications") or [])
     if pending_key not in st.session_state:
+        st.session_state[pending_key] = None
+    elif (
+        st.session_state[pending_key] is not None
+        and normalize_medication_rows(st.session_state[pending_key]) == stored_medications
+    ):
         st.session_state[pending_key] = None
 
     st.markdown("#### Medications")
-    source_medications = (
-        st.session_state[pending_key]
-        or discharge.get("medications")
-        or []
-    )
+    source_medications = st.session_state[pending_key] or stored_medications
+    med_columns = [
+        "sl_no", "medicine_name", "strength", "dosage", "frequency", "route",
+        "period", "remarks", "total_quantity",
+    ]
     medications = pd.DataFrame(source_medications)
-    if not medications.empty:
-        columns = [
-            c for c in
-            ["sl_no", "medicine_name", "strength", "dosage", "frequency", "route",
-             "period", "remarks", "total_quantity"]
-            if c in medications.columns
-        ]
-        edited = st.data_editor(
-            medications[columns],
-            use_container_width=True,
-            num_rows="dynamic",
-            key="medication-editor",
-        )
-        normalized = normalize_medication_rows(edited.to_dict("records"))
-        original = normalize_medication_rows(source_medications)
-        if normalized != original:
-            corrections["discharge_report.medications"] = normalized
-            st.session_state[pending_key] = normalized
-            st.caption("Medication table has unsaved edits.")
+    if medications.empty:
+        medications = pd.DataFrame(columns=med_columns)
     else:
-        normalized = []
-        st.caption("No medications on the discharge report yet.")
+        for column in med_columns:
+            if column not in medications.columns:
+                medications[column] = None
+    edited = st.data_editor(
+        medications[med_columns],
+        use_container_width=True,
+        num_rows="dynamic",
+        key=f"medication-editor-{case['case_id']}",
+    )
+    normalized = normalize_medication_rows(edited.to_dict("records"))
+    corrections.update(medication_corrections_if_changed(stored_medications, normalized))
+    if corrections.get("discharge_report.medications"):
+        st.session_state[pending_key] = corrections["discharge_report.medications"]
+        st.caption("Medication table has unsaved edits.")
 
     suggestions = medication_correction_suggestions(
         validation.get("findings") or [],
-        normalized or normalize_medication_rows(source_medications),
+        normalized,
     )
     if suggestions:
         st.markdown("#### Medication correction suggestions")
@@ -497,13 +499,9 @@ def page_corrections(svc: DashboardService) -> None:
                     key=f"med-suggestion-{case['case_id']}-{index}",
                     use_container_width=True,
                 ):
-                    current_rows = corrections.get(
-                        "discharge_report.medications",
-                        normalized or normalize_medication_rows(source_medications),
-                    )
+                    current_rows = corrections.get("discharge_report.medications", normalized)
                     updated = apply_medication_suggestion(current_rows, action)
                     st.session_state[pending_key] = updated
-                    corrections["discharge_report.medications"] = updated
                     st.toast("Medication suggestion applied", icon="💊")
                     st.rerun()
     elif validation.get("findings"):
@@ -599,13 +597,15 @@ def page_corrections(svc: DashboardService) -> None:
                 corrections=corrections,
                 notes=notes,
             )
+            st.session_state[pending_key] = None
             st.toast("Review saved", icon="💾")
-            st.success("Feedback recorded in the audit trail.")
+            st.success("Feedback recorded and corrections saved to the case record.")
+            st.rerun()
 
     with rerun:
         if st.button("🔄 Re-run validation", type="primary", use_container_width=True):
             with st.spinner("Applying corrections and re-validating…"):
-                outcome = svc.revalidate(case["case_id"], corrections or None)
+                outcome = svc.revalidate(case["case_id"], corrections)
             st.session_state[pending_key] = None
             refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Validation re-run", icon="🔄")
@@ -619,6 +619,7 @@ def page_corrections(svc: DashboardService) -> None:
                     f"Now cleared — {outcome['risk_level']} risk, "
                     f"score {outcome['risk_score']}."
                 )
+            st.rerun()
 
     runs = svc.validation_runs(case["case_id"])
     if len(runs) > 1:

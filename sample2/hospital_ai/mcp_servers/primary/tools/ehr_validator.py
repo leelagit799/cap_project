@@ -75,6 +75,8 @@ def canonical_drug(name: str) -> str:
     cleaned = re.sub(r"\b(hfa|mdi|tablet|tablets|caps?|capsules?|inhaler|oral|iv|im)\b", "", cleaned)
     cleaned = re.sub(r"[^a-zà-ÿ0-9\- ]", "", cleaned).strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
+    if len(cleaned) > 40 or " is a " in cleaned:
+        cleaned = cleaned.split()[0] if cleaned.split() else cleaned
     return DRUG_ALIASES.get(cleaned, cleaned)
 
 

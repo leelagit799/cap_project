@@ -40,6 +40,40 @@ def test_cases_filters_by_patient_id(tmp_path):
     assert svc.cases(patient_id="P1019")[0]["case_id"] == "CASE-A"
 
 
+def test_save_review_persists_medication_corrections(tmp_path):
+    from hospital_ai.storage import CaseStore
+
+    store = CaseStore(tmp_path / "cases.sqlite")
+    store.create_case("CASE-P1024", "P1024", "trace-p1024")
+    store.save_record(
+        "CASE-P1024",
+        {
+            "discharge_report": {
+                "medications": [
+                    {"medicine_name": "Amoxicilline", "strength": "500 mg"},
+                ]
+            },
+            "bill": {},
+        },
+    )
+
+    svc = DashboardService(store=store)
+    svc.save_review(
+        "CASE-P1024",
+        reviewer="clinician",
+        decision="edit",
+        corrections={
+            "discharge_report.medications": [
+                {"medicine_name": "Azithromycin", "strength": "500 mg"},
+                {"medicine_name": "Paracetamol", "strength": "500 mg"},
+            ]
+        },
+    )
+
+    meds = store.get_record("CASE-P1024")["discharge_report"]["medications"]
+    assert [med["medicine_name"] for med in meds] == ["Azithromycin", "Paracetamol"]
+
+
 async def test_elicitation_accepts_supplied_answers():
     from hospital_ai.ui.service import _elicitation_handler
 

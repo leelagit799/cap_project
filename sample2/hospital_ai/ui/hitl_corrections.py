@@ -95,8 +95,39 @@ def merge_corrections(*parts: dict[str, Any] | None) -> dict[str, Any]:
     return merged
 
 
+def medication_corrections_if_changed(
+    stored: list[dict[str, Any]] | None,
+    current: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Return a correction payload when the editor differs from the saved record."""
+    stored_norm = normalize_medication_rows(stored or [])
+    current_norm = normalize_medication_rows(current or [])
+    if current_norm != stored_norm:
+        return {"discharge_report.medications": current_norm}
+    return {}
+
+
 def _canonical_name(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", str(name).strip().lower())
+
+
+def _is_plausible_drug_name(name: str) -> bool:
+    cleaned = str(name or "").strip()
+    if not cleaned or len(cleaned) > 80:
+        return False
+    lowered = cleaned.lower()
+    return " is a " not in lowered and " medication " not in lowered
+
+
+def _display_drug_name(name: str) -> str:
+    cleaned = str(name or "").strip()
+    if not _is_plausible_drug_name(cleaned):
+        match = re.search(r"'([^']+)'", cleaned)
+        if match and _is_plausible_drug_name(match.group(1)):
+            cleaned = match.group(1)
+        else:
+            cleaned = cleaned.split()[0] if cleaned.split() else cleaned
+    return cleaned[:1].upper() + cleaned[1:] if cleaned else cleaned
 
 
 def _parse_missing_prescription_fields(message: str) -> list[str]:
@@ -132,22 +163,23 @@ def medication_correction_suggestions(
         if rule_id == "med_omission_check":
             expected = finding.get("expected")
             actual = finding.get("actual")
-            if expected:
+            if expected and _is_plausible_drug_name(str(expected)):
                 canonical = _canonical_name(str(expected))
                 if canonical in existing:
                     continue
+                display_name = _display_drug_name(str(expected))
                 suggestions.append(
                     {
                         "id": suggestion_id,
-                        "title": f"Add '{expected}' to the prescription table",
+                        "title": f"Add '{display_name}' to the prescription table",
                         "detail": finding["message"],
                         "action": {
                             "type": "add_row",
-                            "row": {"medicine_name": str(expected).title()},
+                            "row": {"medicine_name": display_name},
                         },
                     }
                 )
-            elif actual:
+            elif actual and _is_plausible_drug_name(str(actual)):
                 suggestions.append(
                     {
                         "id": suggestion_id,
