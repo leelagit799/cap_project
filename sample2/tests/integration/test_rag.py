@@ -125,8 +125,8 @@ class TestReflectionRole:
     def test_refusal_scores_as_faithful(self):
         """Declining when the context lacks the answer asserts nothing false."""
         triad = ReflectionAgent().score("anything", OUT_OF_CONTEXT_ANSWER, [])
-        assert triad.faithfulness == 1.0
-        assert triad.answer_relevance < 1.0
+        assert 0.85 <= triad.faithfulness < 1.0
+        assert triad.answer_relevance < 0.5
 
     def test_grounded_answer_passes_the_threshold(self):
         chunks = [
@@ -209,7 +209,8 @@ class TestAnswering:
             )
 
         assert answer.triad.context_relevance < 0.25
-        assert answer.triad.answer_relevance < 0.6
+        assert answer.triad.answer_relevance < 0.55
+        assert 0.0 < answer.triad.faithfulness < 1.0
 
     async def test_sessions_keep_only_the_last_three_turns(self, tmp_path):
         async with rag_agent(tmp_path) as (agent, _):

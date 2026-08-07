@@ -654,9 +654,9 @@ def page_rag(svc: DashboardService) -> None:
         st.markdown(
             theme.metrics_row(
                 [
-                    ("Faithfulness", f"{triad['faithfulness']:.2f}", "≥ 0.70 required"),
-                    ("Answer relevance", f"{triad['answer_relevance']:.2f}", ""),
-                    ("Context relevance", f"{triad['context_relevance']:.2f}", ""),
+                    ("Faithfulness", f"{triad['faithfulness']:.3f}", "≥ 0.70 required"),
+                    ("Answer relevance", f"{triad['answer_relevance']:.3f}", ""),
+                    ("Context relevance", f"{triad['context_relevance']:.3f}", ""),
                 ]
             ),
             unsafe_allow_html=True,

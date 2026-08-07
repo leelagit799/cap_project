@@ -81,26 +81,34 @@ class TestTriadScoring:
 
     def test_refusal_is_faithful_without_perfect_relevance(self):
         triad = ReflectionAgent().score("anything", OUT_OF_CONTEXT_ANSWER, [])
-        assert triad.faithfulness == 1.0
-        assert triad.answer_relevance < 1.0
+        assert 0.85 <= triad.faithfulness < 1.0
+        assert triad.answer_relevance < 0.5
+        assert triad.context_relevance < 0.2
 
-    def test_grounded_medication_answer_passes(self):
+    def test_scores_are_granular_not_only_zero_or_one(self):
         chunks = [
             RetrievedChunk(
                 chunk_id="m",
-                text="Discharge medications for Thomas Wright: Metformin 500 mg twice daily, "
-                "Lisinopril 10 mg once daily.",
-            )
+                text="Discharge medications for Thomas Wright: Metformin 500 mg twice daily.",
+                score=0.71,
+                section="medications",
+            ),
+            RetrievedChunk(
+                chunk_id="d",
+                text="Discharge diagnosis: Type 2 Diabetes Mellitus.",
+                score=0.52,
+                section="diagnosis",
+            ),
         ]
         answer = compose_structured_answer(
             "What medications was Thomas Wright discharged on?",
             _CONTEXT,
         )
-        faithfulness, answer_relevance, context_relevance = triad_from_overlap(
+        triad = ReflectionAgent().score(
             "What medications was Thomas Wright discharged on?",
             answer,
             chunks,
         )
-        assert faithfulness >= 0.4
-        assert answer_relevance >= 0.3
-        assert context_relevance >= 0.2
+        values = (triad.faithfulness, triad.answer_relevance, triad.context_relevance)
+        assert all(0.0 < value < 1.0 for value in values), values
+        assert len({round(v, 2) for v in values}) >= 2

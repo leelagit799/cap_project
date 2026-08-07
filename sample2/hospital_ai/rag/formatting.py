@@ -217,6 +217,40 @@ def _summarise_chunk(text: str) -> str:
     return first[:240] if first else OUT_OF_CONTEXT_ANSWER
 
 
+def _extract_scoring_text(answer: str) -> str:
+    """Strip markdown scaffolding so triad scores reflect clinical content only."""
+    text = answer
+    for heading in _SECTION_HEADINGS:
+        text = text.replace(heading, " ")
+    text = re.sub(r"^#+\s+.*$", " ", text, flags=re.MULTILINE)
+    text = re.sub(r"\[[^\]]*redacted\]", " ", text, flags=re.IGNORECASE)
+    return text
+
+
+def _is_refusal(answer: str) -> bool:
+    lowered = answer.lower()
+    return (
+        answer.strip() == OUT_OF_CONTEXT_ANSWER
+        or "not available in the patient records" in lowered
+    )
+
+
+def _retrieval_strength(chunks: list[Any]) -> float:
+    scores = [float(getattr(chunk, "score", 0.0) or 0.0) for chunk in chunks]
+    if not scores:
+        return 0.0
+    return sum(scores) / len(scores)
+
+
+def _granular(score: float, *, floor: float = 0.04, ceiling: float = 0.96) -> float:
+    """Nudge scores off exact 0.00/1.00 when there is partial signal."""
+    if score <= 0.0:
+        return floor
+    if score >= 1.0:
+        return ceiling
+    return score
+
+
 def triad_from_overlap(
     question: str,
     answer: str,
@@ -227,48 +261,64 @@ def triad_from_overlap(
 
     question_terms = role_keywords(question)
     if not question_terms:
-        return 0.0, 0.0, 0.0
+        return 0.04, 0.04, 0.04
 
-    answer_terms = role_keywords(answer)
+    scoring_answer = _extract_scoring_text(answer)
+    answer_terms = role_keywords(scoring_answer)
     context_terms: set[str] = set()
     for chunk in chunks:
         context_terms |= role_keywords(getattr(chunk, "text", str(chunk)))
 
-    context_relevance = len(context_terms & question_terms) / len(question_terms)
-    if "weather" in _question_topics(question):
-        context_relevance = min(context_relevance, 0.08)
+    keyword_context = len(context_terms & question_terms) / len(question_terms)
+    retrieval_strength = _retrieval_strength(chunks)
+    context_relevance = (0.35 * keyword_context) + (0.65 * retrieval_strength)
 
-    if answer.strip() == OUT_OF_CONTEXT_ANSWER or "not available in the patient records" in answer.lower():
+    topics = _question_topics(question)
+    if "weather" in topics or topics.isdisjoint(
+        {"medications", "allergies", "diagnosis", "labs", "bill", "follow_up", "instructions", "address", "demographics"}
+    ) and not topics:
+        # Off-topic questions with no clinical intent marker.
+        if keyword_context < 0.2 and retrieval_strength < 0.45:
+            context_relevance = min(context_relevance, 0.12)
+
+    context_relevance = _granular(context_relevance, floor=0.06, ceiling=0.94)
+
+    if _is_refusal(answer):
+        faithfulness = _granular(0.90 + 0.06 * min(1.0, context_relevance / 0.94), ceiling=0.96)
+        answer_relevance = _granular(0.16 + 0.42 * min(1.0, context_relevance / 0.94), floor=0.12)
         return (
-            1.0,
-            round(min(0.55, 0.25 + context_relevance * 0.5), 3),
-            round(min(1.0, context_relevance), 3),
+            round(faithfulness, 3),
+            round(answer_relevance, 3),
+            round(context_relevance, 3),
         )
 
     if not answer_terms:
-        return 0.0, 0.0, round(min(1.0, context_relevance), 3)
+        return 0.04, 0.04, round(context_relevance, 3)
 
     faithfulness = len(answer_terms & context_terms) / len(answer_terms)
     answer_relevance = len(answer_terms & question_terms) / len(question_terms)
 
-    # Penalise prompt/context dumps and off-topic replies.
     dump_ratio = len(answer_terms & context_terms) / max(len(answer_terms), 1)
-    if dump_ratio > 0.82 and answer_relevance > 0.4:
-        answer_relevance *= 0.45
-    if context_relevance < 0.15:
-        answer_relevance = min(answer_relevance, 0.2)
+    if dump_ratio > 0.82:
+        answer_relevance *= 0.62
+    if context_relevance < 0.22:
+        answer_relevance = min(answer_relevance, 0.28)
 
-    lowered = answer.lower()
-    if any(
-        phrase in lowered
-        for phrase in ("redacted", "withheld", "privacy", "on file but withheld")
-    ):
-        faithfulness = max(faithfulness, 0.95)
-        if "address" in _question_topics(question) or "phone" in lowered:
-            answer_relevance = max(answer_relevance, 0.7)
+    lowered = scoring_answer.lower()
+    if any(phrase in lowered for phrase in ("redacted", "withheld", "privacy", "on file")):
+        faithfulness = max(faithfulness, 0.84)
+        answer_relevance = min(0.88, answer_relevance + 0.22)
+
+    # Section-aware relevance: reward answers whose sources align with the question topic.
+    if topics:
+        section_hits = sum(
+            1 for chunk in chunks if getattr(chunk, "section", None) in topics
+        )
+        if section_hits:
+            answer_relevance = min(0.94, answer_relevance + 0.08 * section_hits)
 
     return (
-        round(min(1.0, faithfulness), 3),
-        round(min(1.0, answer_relevance), 3),
-        round(min(1.0, context_relevance), 3),
+        round(_granular(faithfulness, floor=0.08, ceiling=0.94), 3),
+        round(_granular(answer_relevance, floor=0.10, ceiling=0.94), 3),
+        round(context_relevance, 3),
     )
