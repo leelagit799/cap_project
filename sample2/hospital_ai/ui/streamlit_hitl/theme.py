@@ -1,178 +1,225 @@
-"""Visual language for the HITL dashboard.
-
-Streamlit is the framework doc Table 14 mandates, so the enterprise look is
-built with custom CSS on top of it rather than by swapping in a JS stack. All
-colours are driven by CSS custom properties that follow the user's light or
-dark preference, so both modes come from one definition.
-"""
+"""Visual language for the HITL dashboard — light mode only."""
 
 from __future__ import annotations
 
 CSS = """
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --df-bg: #f5f7fb;
+  --df-bg: #f8fafc;
   --df-surface: #ffffff;
-  --df-surface-2: #eef2f9;
-  --df-ink: #16233d;
+  --df-surface-2: #f1f5f9;
+  --df-ink: #0f172a;
   --df-muted: #64748b;
-  --df-line: #dde5f0;
-  --df-accent: #2b5fd9;
-  --df-low: #12805c;
-  --df-medium: #b26a00;
-  --df-high: #c62f2a;
-  --df-shadow: 0 1px 2px rgba(16,32,64,.06), 0 8px 24px rgba(16,32,64,.06);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --df-bg: #0d1220;
-    --df-surface: #151d2e;
-    --df-surface-2: #1b2436;
-    --df-ink: #e9eefb;
-    --df-muted: #93a3c0;
-    --df-line: #26314a;
-    --df-accent: #6f97ff;
-    --df-low: #34d399;
-    --df-medium: #fbbf24;
-    --df-high: #f87171;
-    --df-shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
-  }
+  --df-line: #e2e8f0;
+  --df-accent: #2563eb;
+  --df-accent-soft: rgba(37, 99, 235, 0.08);
+  --df-low: #059669;
+  --df-medium: #d97706;
+  --df-high: #dc2626;
+  --df-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --df-radius: 12px;
 }
 
-.stApp { background: var(--df-bg); }
-.block-container { padding-top: 2.2rem; max-width: 1280px; }
+html, body, [class*="css"] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.stApp { background: var(--df-bg); color: var(--df-ink); }
+.block-container { padding-top: 1.5rem; max-width: 1280px; }
+
+/* ---- Icons ---- */
+.df-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.df-icon-lg { width: 22px; height: 22px; }
 
 /* ---- Masthead ---- */
 .df-masthead {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 20px; padding: 18px 24px; margin-bottom: 22px; border-radius: 16px;
-  background: linear-gradient(135deg, var(--df-accent) 0%, #1b3fa0 100%);
-  color: #fff; box-shadow: var(--df-shadow);
-  animation: df-fade .4s ease both;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; padding: 20px 24px; margin-bottom: 20px; border-radius: var(--df-radius);
+  background: var(--df-surface); border: 1px solid var(--df-line);
+  box-shadow: var(--df-shadow); animation: df-fade .35s ease both;
 }
-.df-masthead h1 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
-.df-masthead p  { margin: 3px 0 0; font-size: 13px; opacity: .88; }
-.df-masthead .df-page { font-size: 12px; text-transform: uppercase;
-  letter-spacing: .12em; opacity: .85; }
+.df-masthead h1 {
+  margin: 0; font-size: 1.35rem; font-weight: 700; letter-spacing: -.02em;
+  color: var(--df-ink);
+}
+.df-masthead p { margin: 4px 0 0; font-size: 0.875rem; color: var(--df-muted); line-height: 1.5; }
+.df-masthead .df-page {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--df-muted); white-space: nowrap;
+  padding: 6px 10px; border-radius: 8px; background: var(--df-surface-2);
+  border: 1px solid var(--df-line);
+}
+
+/* ---- Sidebar brand & nav ---- */
+.df-brand {
+  display: flex; align-items: center; gap: 10px; padding: 4px 0 12px;
+}
+.df-brand-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--df-accent-soft); color: var(--df-accent);
+}
+.df-brand h2 {
+  margin: 0; font-size: 1rem; font-weight: 700; color: var(--df-ink); line-height: 1.2;
+}
+.df-brand p { margin: 2px 0 0; font-size: 11px; color: var(--df-muted); }
+
+.df-nav-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--df-muted); margin: 8px 0 6px;
+}
+.df-nav-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 2px;
+}
+.df-nav-row .df-icon { color: var(--df-muted); }
+
+.df-active-case {
+  background: var(--df-surface-2); border: 1px solid var(--df-line);
+  border-radius: 10px; padding: 10px 12px; margin: 4px 0;
+}
+.df-active-case strong { font-size: 13px; color: var(--df-ink); }
+.df-active-case span { font-size: 11px; color: var(--df-muted); }
 
 /* ---- Cards ---- */
 .df-card {
   background: var(--df-surface); border: 1px solid var(--df-line);
-  border-radius: 14px; padding: 18px 20px; margin-bottom: 16px;
+  border-radius: var(--df-radius); padding: 18px 20px; margin-bottom: 16px;
   box-shadow: var(--df-shadow); animation: df-fade .35s ease both;
 }
 .df-card h3 {
-  margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: .09em;
+  margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: .08em;
   text-transform: uppercase; color: var(--df-muted);
 }
 
 /* ---- Metrics ---- */
-.df-metrics { display: grid; gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.df-metrics { display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 .df-metric {
   background: var(--df-surface); border: 1px solid var(--df-line);
-  border-radius: 12px; padding: 14px 16px; transition: transform .18s ease;
+  border-radius: 10px; padding: 14px 16px; transition: border-color .15s ease;
 }
-.df-metric:hover { transform: translateY(-2px); }
-.df-metric .k { font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--df-muted); }
-.df-metric .v { font-size: 26px; font-weight: 700; color: var(--df-ink); margin-top: 2px; }
-.df-metric .s { font-size: 12px; color: var(--df-muted); }
+.df-metric:hover { border-color: #cbd5e1; }
+.df-metric .k { font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--df-muted); font-weight: 600; }
+.df-metric .v { font-size: 1.5rem; font-weight: 700; color: var(--df-ink); margin-top: 2px; }
+.df-metric .s { font-size: 12px; color: var(--df-muted); margin-top: 2px; }
 
 /* ---- Badges ---- */
 .df-badge {
-  display: inline-block; padding: 5px 13px; border-radius: 999px;
-  font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #fff;
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .03em; color: #fff;
 }
 .df-badge.Low { background: var(--df-low); }
 .df-badge.Medium { background: var(--df-medium); }
 .df-badge.High { background: var(--df-high); }
-.df-badge.neutral { background: var(--df-muted); }
+.df-badge.neutral { background: #94a3b8; }
 
 .df-pill {
-  display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 11px;
-  font-weight: 600; letter-spacing: .04em; border: 1px solid var(--df-line);
-  background: var(--df-surface-2); color: var(--df-muted); margin-right: 6px;
+  display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 11px;
+  font-weight: 500; border: 1px solid var(--df-line);
+  background: var(--df-surface-2); color: var(--df-muted); margin-right: 6px; margin-bottom: 4px;
 }
 
 /* ---- Banners ---- */
-.df-banner { padding: 14px 18px; border-radius: 12px; font-weight: 600;
-  margin-bottom: 16px; animation: df-fade .3s ease both; }
-.df-banner.blocked { background: rgba(198,47,42,.12); color: var(--df-high);
-  border: 1px solid rgba(198,47,42,.35); }
-.df-banner.clear { background: rgba(18,128,92,.12); color: var(--df-low);
-  border: 1px solid rgba(18,128,92,.32); }
-.df-banner.info { background: rgba(43,95,217,.10); color: var(--df-accent);
-  border: 1px solid rgba(43,95,217,.28); }
+.df-banner { padding: 12px 16px; border-radius: 10px; font-weight: 500; font-size: 14px;
+  margin-bottom: 16px; animation: df-fade .3s ease both; line-height: 1.5; }
+.df-banner.blocked { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.df-banner.clear { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.df-banner.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
 /* ---- Severity text ---- */
-.sev-critical { color: var(--df-high); font-weight: 700; }
-.sev-warning  { color: var(--df-medium); font-weight: 700; }
-.sev-info     { color: var(--df-muted); font-weight: 600; }
+.sev-critical { color: var(--df-high); font-weight: 600; }
+.sev-warning  { color: var(--df-medium); font-weight: 600; }
+.sev-info     { color: var(--df-muted); font-weight: 500; }
 
 /* ---- Streaming summary ---- */
 .df-section {
   border-left: 3px solid var(--df-accent); padding: 4px 0 4px 16px;
   margin-bottom: 18px; animation: df-slide .4s ease both;
 }
-.df-section h4 { margin: 0 0 6px; font-size: 15px; color: var(--df-ink); }
-.df-section p { margin: 0; color: var(--df-muted); line-height: 1.62; }
+.df-section h4 { margin: 0 0 6px; font-size: 15px; color: var(--df-ink); font-weight: 600; }
+.df-section p { margin: 0; color: var(--df-muted); line-height: 1.65; }
 
 /* ---- Chat ---- */
-.df-chat { border-radius: 12px; padding: 13px 16px; margin-bottom: 11px;
-  animation: df-fade .3s ease both; }
+.df-chat { border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  animation: df-fade .3s ease both; font-size: 14px; }
 .df-chat.q { background: var(--df-surface-2); border: 1px solid var(--df-line); }
 .df-chat.a { background: var(--df-surface); border: 1px solid var(--df-line);
   border-left: 3px solid var(--df-accent); }
 
 /* ---- Skeleton loader ---- */
-.df-skeleton { height: 14px; border-radius: 7px; margin: 8px 0;
+.df-skeleton { height: 12px; border-radius: 6px; margin: 8px 0;
   background: linear-gradient(90deg, var(--df-surface-2) 25%,
     var(--df-line) 37%, var(--df-surface-2) 63%);
   background-size: 400% 100%; animation: df-shimmer 1.3s ease-in-out infinite; }
 
 @keyframes df-shimmer { 0% { background-position: 100% 50%; }
                         100% { background-position: 0 50%; } }
-@keyframes df-fade  { from { opacity: 0; transform: translateY(6px); }
+@keyframes df-fade  { from { opacity: 0; transform: translateY(4px); }
                       to { opacity: 1; transform: none; } }
-@keyframes df-slide { from { opacity: 0; transform: translateX(-8px); }
+@keyframes df-slide { from { opacity: 0; transform: translateX(-6px); }
                       to { opacity: 1; transform: none; } }
 
 /* ---- Streamlit chrome ---- */
-/* Keep the app header visible so the sidebar collapse/expand control stays reachable. */
 header[data-testid="stHeader"] {
   visibility: visible !important;
   display: block !important;
+  background: transparent !important;
 }
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"] {
   visibility: visible !important;
 }
-section[data-testid="stSidebar"] { background: var(--df-surface);
-  border-right: 1px solid var(--df-line); }
+section[data-testid="stSidebar"] {
+  background: var(--df-surface) !important;
+  border-right: 1px solid var(--df-line);
+}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+  background: var(--df-accent-soft) !important;
+  color: var(--df-accent) !important;
+  border: 1px solid rgba(37, 99, 235, 0.25) !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--df-ink) !important;
+  font-weight: 500 !important;
+}
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+  background: var(--df-surface-2) !important;
+  border-color: var(--df-line) !important;
+}
 div[data-testid="stDataFrame"] { border: 1px solid var(--df-line); border-radius: 10px; }
-.stButton > button { border-radius: 9px; font-weight: 600; transition: transform .12s ease; }
-.stButton > button:hover { transform: translateY(-1px); }
+.stButton > button { border-radius: 8px; font-weight: 600; }
+.stDownloadButton > button { border-radius: 8px; font-weight: 600; }
 
 /* ---- Upload workspace ---- */
 .df-upload-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .df-upload-card {
-  background: var(--df-surface); border: 1px dashed var(--df-line); border-radius: 14px;
-  padding: 18px; min-height: 180px; transition: border-color .2s ease, box-shadow .2s ease;
+  background: var(--df-surface); border: 1px dashed var(--df-line); border-radius: var(--df-radius);
+  padding: 16px; min-height: 72px; transition: border-color .2s ease;
 }
-.df-upload-card:hover { border-color: var(--df-accent); box-shadow: var(--df-shadow); }
-.df-upload-card h4 { margin: 0 0 8px; font-size: 14px; color: var(--df-ink); }
-.df-upload-card p { margin: 0 0 12px; font-size: 12px; color: var(--df-muted); }
+.df-upload-card:hover { border-color: #94a3b8; }
+.df-upload-card h4 {
+  margin: 0; font-size: 14px; color: var(--df-ink); font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.df-upload-card p { margin: 6px 0 0; font-size: 12px; color: var(--df-muted); }
 .df-id-badge {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px;
-  background: rgba(43,95,217,.12); color: var(--df-accent); font-weight: 700; font-size: 14px;
-  border: 1px solid rgba(43,95,217,.25); margin-bottom: 16px;
+  background: var(--df-accent-soft); color: var(--df-accent); font-weight: 600; font-size: 13px;
+  border: 1px solid rgba(37, 99, 235, 0.2); margin-bottom: 16px;
 }
 .df-file-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 12px; border: 1px solid var(--df-line); border-radius: 10px; margin-bottom: 8px;
-  background: var(--df-surface-2);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 12px; border: 1px solid var(--df-line); border-radius: 8px; margin-bottom: 8px;
+  background: var(--df-surface-2); font-size: 13px;
+}
+.df-file-row .df-file-name {
+  display: flex; align-items: center; gap: 8px;
 }
 </style>
 """

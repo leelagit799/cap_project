@@ -8,7 +8,7 @@ from hospital_ai.core.errors import DischargeFlowError
 from hospital_ai.ingest.models import DocType
 from hospital_ai.ingest.static_samples import get_patient, list_sample_patients, update_patient_documents
 from hospital_ai.ui.service import DashboardService
-from hospital_ai.ui.streamlit_hitl import theme
+from hospital_ai.ui.streamlit_hitl import icons, theme
 from hospital_ai.ui.streamlit_hitl.session_context import clear_active_context, get_active_context
 from mock_ehr.data import PATIENTS
 
@@ -19,9 +19,9 @@ _DOC_LABELS = {
 }
 
 _DOC_ICONS = {
-    "discharge_report": "🩺",
-    "lab_report": "🧪",
-    "bill": "🧾",
+    "discharge_report": "stethoscope",
+    "lab_report": "test-tube",
+    "bill": "receipt",
 }
 
 _ACCEPT = {
@@ -69,7 +69,8 @@ def page_upload(svc: DashboardService) -> None:
 
     if st.session_state.doc_mgmt_save_message:
         st.markdown(
-            f'<div class="df-banner clear">✅ {st.session_state.doc_mgmt_save_message}</div>',
+            f'<div class="df-banner clear">'
+            f"{icons.svg('check-circle', size=16)} {st.session_state.doc_mgmt_save_message}</div>",
             unsafe_allow_html=True,
         )
 
@@ -97,7 +98,8 @@ def page_upload(svc: DashboardService) -> None:
         return
 
     st.markdown(
-        f'<div class="df-id-badge">🪪 Patient ID <span>{patient_id}</span></div>',
+        f'<div class="df-id-badge">{icons.svg("user", size=16)} '
+        f"Patient ID <span>{patient_id}</span></div>",
         unsafe_allow_html=True,
     )
 
@@ -140,7 +142,7 @@ def page_upload(svc: DashboardService) -> None:
     columns = st.columns(3)
     for column, doc_type in zip(columns, _DOC_ORDER):
         label, formats = _DOC_LABELS[doc_type]
-        icon = _DOC_ICONS[doc_type]
+        icon = icons.svg(_DOC_ICONS[doc_type], size=18)
         with column:
             st.markdown(
                 f'<div class="df-upload-card">'
@@ -258,9 +260,10 @@ def page_upload(svc: DashboardService) -> None:
         st.warning("No documents saved yet.")
     else:
         for doc in all_docs:
+            doc_icon = icons.svg(_DOC_ICONS.get(doc["doc_type"], "file-text"), size=16)
             st.markdown(
                 f'<div class="df-file-row">'
-                f'<span>{_DOC_ICONS.get(doc["doc_type"], "📄")} '
+                f'<span class="df-file-name">{doc_icon} '
                 f'<strong>{doc["filename"]}</strong></span>'
                 f'<span class="df-pill">{doc["doc_type"].replace("_", " ")}</span>'
                 f'<span class="df-pill">{doc["size_bytes"] // 1024} KB</span>'

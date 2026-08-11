@@ -36,7 +36,7 @@ from hospital_ai.ui.service import (
     DashboardService,
     unwrap_exception_group,
 )
-from hospital_ai.ui.streamlit_hitl import theme
+from hospital_ai.ui.streamlit_hitl import icons, theme
 from hospital_ai.observability import langfuse_status
 from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
 from hospital_ai.ui.streamlit_hitl.session_context import (
@@ -58,14 +58,14 @@ st.set_page_config(
 )
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
-PAGES = {
-    "0 · Patient Documents": "upload",
-    "1 · Document Viewer": "documents",
-    "2 · Validation Report": "validation",
-    "3 · HITL Corrections": "corrections",
-    "4 · RAG Q&A": "rag",
-    "5 · Discharge Summary": "summary",
-}
+NAV_ITEMS: list[tuple[str, str, str]] = [
+    ("upload", "folder-open", "Patient Documents"),
+    ("documents", "file-search", "Document Viewer"),
+    ("validation", "clipboard-check", "Validation Report"),
+    ("corrections", "shield-check", "HITL Corrections"),
+    ("rag", "message-circle", "Clinical Q&A"),
+    ("summary", "file-text", "Discharge Summary"),
+]
 
 LANGUAGE_NAMES = {
     "en": "English", "es": "Spanish", "hi": "Hindi",
@@ -125,18 +125,45 @@ def _execute_process(svc: DashboardService, patient_id: str) -> None:
 
 
 def render_sidebar(svc: DashboardService) -> str:
+    if "nav_page" not in st.session_state:
+        st.session_state.nav_page = "upload"
+
     with st.sidebar:
-        st.markdown("### 🏥 DischargeFlow")
-        st.caption("St. Marian Regional Medical Center")
-        page = st.radio("Workspace", list(PAGES), label_visibility="collapsed")
+        st.markdown(
+            f'<div class="df-brand">'
+            f'<div class="df-brand-icon">{icons.svg("heart-pulse", size=20)}</div>'
+            f"<div><h2>DischargeFlow</h2>"
+            f"<p>St. Marian Regional Medical Center</p></div></div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="df-nav-label">Workspace</div>', unsafe_allow_html=True)
+        for page_key, icon_name, label in NAV_ITEMS:
+            is_active = st.session_state.nav_page == page_key
+            icon_col, btn_col = st.columns([0.12, 0.88], vertical_alignment="center")
+            with icon_col:
+                st.markdown(icons.svg(icon_name, size=16), unsafe_allow_html=True)
+            with btn_col:
+                if st.button(
+                    label,
+                    key=f"nav-{page_key}",
+                    use_container_width=True,
+                    type="primary" if is_active else "secondary",
+                ):
+                    st.session_state.nav_page = page_key
+                    st.rerun()
 
         st.divider()
         active = get_active_context()
         if active:
             st.markdown("**Active case**")
-            st.caption(
-                f"{active.get('patient_id')} · {active.get('case_id', '')[:20]}…\n\n"
-                f"Status: {active.get('workflow_status')}"
+            st.markdown(
+                f'<div class="df-active-case">'
+                f"<strong>{active.get('patient_id')}</strong><br>"
+                f"<span>{str(active.get('case_id', ''))[:22]}…</span><br>"
+                f"<span>Status: {active.get('workflow_status')}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
             )
         else:
             st.caption("No active processing session.")
@@ -181,7 +208,7 @@ def render_sidebar(svc: DashboardService) -> str:
             f"Rules `{settings.rules_version[:12]}…`\n\n"
             f"LangFuse {lf_label}"
         )
-    return PAGES[page]
+    return st.session_state.nav_page
 
 
 # --- Page 1: Document Viewer -------------------------------------------------
@@ -225,7 +252,7 @@ def page_documents(svc: DashboardService) -> None:
         st.write("")
         process_disabled = not entry["complete"]
         if st.button(
-            "▶ Process Patient",
+            "Process Patient",
             type="primary",
             use_container_width=True,
             disabled=process_disabled,
@@ -333,10 +360,10 @@ def page_validation(svc: DashboardService) -> None:
         return
 
     blocked = validation["discharge_blocked"]
+    blocked_label = "Discharge blocked" if blocked else "Cleared for release"
     st.markdown(
         f'<div class="df-banner {"blocked" if blocked else "clear"}">'
-        f'{"⛔ Discharge blocked — " if blocked else "✅ Cleared for release — "}'
-        f'{validation["recommendation_text"]}</div>',
+        f"<strong>{blocked_label}</strong> — {validation['recommendation_text']}</div>",
         unsafe_allow_html=True,
     )
 
@@ -572,9 +599,10 @@ def page_corrections(svc: DashboardService) -> None:
             corrections["discharge_report.follow_up_appointments"] = [follow_up] if follow_up else []
 
     st.markdown("#### Decision")
-    decision = st.selectbox(
+    decision = st.segmented_control(
         "Decision",
-        ["allow", "reject", "no call"],
+        options=["allow", "reject", "no call"],
+        default="no call",
         help=(
             "**allow** — discharge the patient regardless of validation findings. "
             "**reject** — deny discharge. "
@@ -584,7 +612,7 @@ def page_corrections(svc: DashboardService) -> None:
 
     save, rerun = st.columns(2)
     with save:
-        if st.button("💾 Save feedback", use_container_width=True):
+        if st.button("Save feedback", use_container_width=True):
             outcome = svc.apply_hitl_decision(
                 case["case_id"],
                 decision,
@@ -612,9 +640,9 @@ def page_corrections(svc: DashboardService) -> None:
 
     with rerun:
         rerun_label = (
-            "🔄 Re-run validation"
+            "Re-run validation"
             if decision == "no call"
-            else "🔄 Apply decision"
+            else "Apply decision"
         )
         if st.button(rerun_label, type="primary", use_container_width=True):
             with st.spinner(
@@ -841,7 +869,7 @@ def page_summary(svc: DashboardService) -> None:
 
     existing = svc.summary(case["case_id"])
 
-    if st.button("▶ Generate summary" if not existing else "🔄 Regenerate", type="primary"):
+    if st.button("Generate summary" if not existing else "Regenerate", type="primary"):
         placeholder = st.container()
         with placeholder:
             skeleton = st.empty()

@@ -11,6 +11,8 @@ from typing import Any
 
 import streamlit as st
 
+from hospital_ai.ui.streamlit_hitl import icons
+
 _CONTEXT_KEY = "active_processing_context"
 _CONFIRM_KEY = "awaiting_process_confirm"
 
@@ -85,7 +87,7 @@ def render_active_panel() -> bool:
     name = ctx.get("patient_name") or "—"
     st.markdown(
         '<div class="df-card"><h3>Active processing context</h3>'
-        f'<span class="df-pill">Patient {ctx.get("patient_id")}</span>'
+        f'<span class="df-pill">{icons.svg("user", size=14)} {ctx.get("patient_id")}</span>'
         f'<span class="df-pill">{name}</span>'
         f'<span class="df-pill">Case {ctx.get("case_id")}</span>'
         f'<span class="df-pill">Trace {str(ctx.get("trace_id") or "")[:16]}…</span>'
