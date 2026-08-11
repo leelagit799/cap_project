@@ -7,18 +7,18 @@ CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --df-bg: #f8fafc;
-  --df-surface: #ffffff;
-  --df-surface-2: #f1f5f9;
-  --df-ink: #0f172a;
-  --df-muted: #64748b;
-  --df-line: #e2e8f0;
+  --df-bg: #eef4fc;
+  --df-surface: #f8fbff;
+  --df-surface-2: #e3ecfa;
+  --df-ink: #0f1d3a;
+  --df-muted: #5b6f8c;
+  --df-line: #cdd9ed;
   --df-accent: #2563eb;
-  --df-accent-soft: rgba(37, 99, 235, 0.08);
+  --df-accent-soft: rgba(37, 99, 235, 0.12);
   --df-low: #059669;
   --df-medium: #d97706;
   --df-high: #dc2626;
-  --df-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --df-shadow: 0 1px 2px rgba(37, 99, 235, 0.05), 0 4px 16px rgba(37, 99, 235, 0.08);
   --df-radius: 12px;
 }
 
@@ -26,7 +26,10 @@ html, body, [class*="css"] {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.stApp { background: var(--df-bg); color: var(--df-ink); }
+.stApp {
+  background: linear-gradient(180deg, #eef4fc 0%, #e8f0fb 100%);
+  color: var(--df-ink);
+}
 .block-container { padding-top: 1.5rem; max-width: 1280px; }
 
 /* ---- Icons ---- */
@@ -37,7 +40,8 @@ html, body, [class*="css"] {
 .df-masthead {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 20px; padding: 20px 24px; margin-bottom: 20px; border-radius: var(--df-radius);
-  background: var(--df-surface); border: 1px solid var(--df-line);
+  background: linear-gradient(135deg, #f8fbff 0%, #e8f1fd 100%);
+  border: 1px solid #c8d8f0;
   box-shadow: var(--df-shadow); animation: df-fade .35s ease both;
 }
 .df-masthead h1 {
@@ -47,9 +51,9 @@ html, body, [class*="css"] {
 .df-masthead p { margin: 4px 0 0; font-size: 0.875rem; color: var(--df-muted); line-height: 1.5; }
 .df-masthead .df-page {
   font-size: 11px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .1em; color: var(--df-muted); white-space: nowrap;
-  padding: 6px 10px; border-radius: 8px; background: var(--df-surface-2);
-  border: 1px solid var(--df-line);
+  letter-spacing: .1em; color: var(--df-accent); white-space: nowrap;
+  padding: 6px 10px; border-radius: 8px; background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.18);
 }
 
 /* ---- Sidebar brand & nav ---- */
@@ -100,7 +104,7 @@ html, body, [class*="css"] {
   background: var(--df-surface); border: 1px solid var(--df-line);
   border-radius: 10px; padding: 14px 16px; transition: border-color .15s ease;
 }
-.df-metric:hover { border-color: #cbd5e1; }
+.df-metric:hover { border-color: #b8c9e6; }
 .df-metric .k { font-size: 10px; letter-spacing: .07em; text-transform: uppercase;
   color: var(--df-muted); font-weight: 600; }
 .df-metric .v { font-size: 1.5rem; font-weight: 700; color: var(--df-ink); margin-top: 2px; }
@@ -174,7 +178,7 @@ header[data-testid="stHeader"] {
   visibility: visible !important;
 }
 section[data-testid="stSidebar"] {
-  background: var(--df-surface) !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #edf3fc 100%) !important;
   border-right: 1px solid var(--df-line);
 }
 section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
@@ -202,7 +206,7 @@ div[data-testid="stDataFrame"] { border: 1px solid var(--df-line); border-radius
   background: var(--df-surface); border: 1px dashed var(--df-line); border-radius: var(--df-radius);
   padding: 16px; min-height: 72px; transition: border-color .2s ease;
 }
-.df-upload-card:hover { border-color: #94a3b8; }
+.df-upload-card:hover { border-color: #7c9fd4; }
 .df-upload-card h4 {
   margin: 0; font-size: 14px; color: var(--df-ink); font-weight: 600;
   display: flex; align-items: center; gap: 8px;
