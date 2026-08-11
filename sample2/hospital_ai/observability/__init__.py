@@ -28,7 +28,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
-from hospital_ai.core.config import get_settings
+from hospital_ai.core.config import PROJECT_ROOT, _load_dotenv, get_settings
 from hospital_ai.core.ids import utc_now_iso
 from hospital_ai.core.logging import get_logger
 from hospital_ai.guardrails import PIIRedactor
@@ -337,17 +337,32 @@ def _estimate_cost(model: str, prompt_tokens: int | None, completion_tokens: int
 
 _CLIENT: Any = None
 _CLIENT_READY = False
+_LAST_LANGFUSE_ERROR: str | None = None
 
 
-def _get_client():
-    global _CLIENT, _CLIENT_READY
+def _get_client(*, force: bool = False):
+    global _CLIENT, _CLIENT_READY, _LAST_LANGFUSE_ERROR
+    if force:
+        reset_client()
     if _CLIENT_READY:
         return _CLIENT
 
-    _CLIENT_READY = True
     settings = get_settings()
     if not settings.langfuse.enabled:
+        _CLIENT_READY = True
+        _LAST_LANGFUSE_ERROR = (
+            "Missing or empty LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY "
+            f"(expected in {settings.project_root / '.env'})."
+        )
         _log.info("LangFuse disabled; tracing to data/reports/traces.jsonl only")
+        return None
+
+    from hospital_ai.core.config import _env_bool
+
+    if not _env_bool("LANGFUSE_TRACING_ENABLED", default=True):
+        _CLIENT_READY = True
+        _LAST_LANGFUSE_ERROR = "LANGFUSE_TRACING_ENABLED is set to false."
+        _log.info("LangFuse tracing disabled via LANGFUSE_TRACING_ENABLED")
         return None
 
     try:
@@ -356,21 +371,67 @@ def _get_client():
         client = Langfuse(
             public_key=settings.langfuse.public_key,
             secret_key=settings.langfuse.secret_key,
-            host=settings.langfuse.host,
+            base_url=settings.langfuse.host,
+            timeout=15,
         )
         if not client.auth_check():
-            _log.warning(
-                "LangFuse auth_check failed; verify LANGFUSE_PUBLIC_KEY, "
-                "LANGFUSE_SECRET_KEY and LANGFUSE_HOST. Falling back to JSONL only."
+            _LAST_LANGFUSE_ERROR = (
+                "LangFuse auth_check failed. Verify LANGFUSE_PUBLIC_KEY, "
+                "LANGFUSE_SECRET_KEY, and LANGFUSE_HOST / LANGFUSE_BASE_URL."
             )
+            _log.warning(_LAST_LANGFUSE_ERROR)
+            _CLIENT_READY = True
             return None
 
         _CLIENT = client
+        _CLIENT_READY = True
+        _LAST_LANGFUSE_ERROR = None
         _log.info("LangFuse client ready", extra={"host": settings.langfuse.host})
     except Exception as exc:  # noqa: BLE001 - fall back to the JSONL sink
+        _LAST_LANGFUSE_ERROR = f"{type(exc).__name__}: {exc}"
         _log.warning("LangFuse unavailable; using JSONL sink", extra={"error": str(exc)})
         _CLIENT = None
+        _CLIENT_READY = True
     return _CLIENT
+
+
+def langfuse_status(*, probe: bool = False) -> dict[str, Any]:
+    """Report whether LangFuse credentials are configured and authenticated."""
+    if probe:
+        _load_dotenv(PROJECT_ROOT / ".env")
+        get_settings.cache_clear()
+        reset_client()
+
+    settings = get_settings()
+    env_path = settings.project_root / ".env"
+    status: dict[str, Any] = {
+        "configured": settings.langfuse.enabled,
+        "base_url": settings.langfuse.host,
+        "env_file": str(env_path),
+        "env_file_exists": env_path.is_file(),
+    }
+    if not settings.langfuse.enabled:
+        status.update(
+            state="disabled",
+            message=(
+                "Missing or empty LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY. "
+                f"Add them to {env_path} and restart the dashboard."
+            ),
+        )
+        return status
+
+    client = _get_client()
+    if client is not None:
+        status.update(
+            state="connected",
+            message=f"Connected to {settings.langfuse.host}",
+        )
+    else:
+        status.update(
+            state="error",
+            message=_LAST_LANGFUSE_ERROR or "LangFuse client unavailable",
+        )
+    return status
 
 
 def trace_url(trace_id: str | None) -> str | None:
@@ -399,8 +460,9 @@ def flush() -> None:
 
 
 def reset_client() -> None:
-    global _CLIENT, _CLIENT_READY
+    global _CLIENT, _CLIENT_READY, _LAST_LANGFUSE_ERROR
     _CLIENT, _CLIENT_READY = None, False
+    _LAST_LANGFUSE_ERROR = None
 
 
-__all__ = ["SpanRecord", "Tracer", "flush", "reset_client", "trace_url"]
+__all__ = ["SpanRecord", "Tracer", "flush", "langfuse_status", "reset_client", "trace_url"]

@@ -16,6 +16,7 @@ import gradio as gr
 import pandas as pd
 
 from hospital_ai.core.config import get_settings
+from hospital_ai.observability import langfuse_status
 from hospital_ai.core.logging import configure_logging, get_logger
 from hospital_ai.ui.service import DashboardService
 
@@ -49,6 +50,7 @@ def _cases_frame(service: DashboardService) -> pd.DataFrame:
 
 def build_ui() -> gr.Blocks:
     settings = get_settings()
+    langfuse = langfuse_status()
     configure_logging(settings.log_level, settings.reports_dir / "pipeline.log")
     service = DashboardService()
 
@@ -241,9 +243,11 @@ def build_ui() -> gr.Blocks:
 
                 **Roots workspace** — `{settings.roots.uri}`
 
-                **LangFuse** — {'connected to ' + settings.langfuse.host
-                                if settings.langfuse.enabled
-                                else 'not configured; tracing to data/reports/traces.jsonl'}
+                **LangFuse** — {(
+                    'connected to ' + langfuse['base_url']
+                    if langfuse['state'] == 'connected'
+                    else langfuse['message']
+                )}
 
                 Secrets are read from the environment and are never displayed here.
                 """
