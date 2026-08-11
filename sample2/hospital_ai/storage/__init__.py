@@ -169,6 +169,30 @@ class CaseStore:
             return None
         return json.loads(case["record_json"])
 
+    def delete_patient_cases(self, patient_id: str) -> list[str]:
+        """Remove all dashboard workflow data for a patient."""
+        cases = self.list_cases(patient_id=patient_id)
+        case_ids = [row["case_id"] for row in cases]
+        if not case_ids:
+            return []
+
+        with self._lock, self._connect() as conn:
+            for case_id in case_ids:
+                conn.execute("DELETE FROM validations WHERE case_id = ?", (case_id,))
+                conn.execute("DELETE FROM findings WHERE case_id = ?", (case_id,))
+                conn.execute("DELETE FROM hitl_reviews WHERE case_id = ?", (case_id,))
+                conn.execute("DELETE FROM summaries WHERE case_id = ?", (case_id,))
+                conn.execute("DELETE FROM audit_events WHERE case_id = ?", (case_id,))
+                conn.execute("DELETE FROM cases WHERE case_id = ?", (case_id,))
+            conn.commit()
+        self.audit(
+            None,
+            "patient-documents",
+            "patient_cases_cleared",
+            f"{patient_id}: {len(case_ids)} case(s)",
+        )
+        return case_ids
+
     def list_cases(self, status: str | None = None, patient_id: str | None = None) -> list[dict[str, Any]]:
         query = "SELECT * FROM cases"
         clauses, values = [], []

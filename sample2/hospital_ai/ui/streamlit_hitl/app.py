@@ -62,7 +62,7 @@ st.set_page_config(
 st.markdown(theme.CSS, unsafe_allow_html=True)
 
 PAGES = {
-    "0 · Patient Upload": "upload",
+    "0 · Patient Documents": "upload",
     "1 · Document Viewer": "documents",
     "2 · Validation Report": "validation",
     "3 · HITL Corrections": "corrections",

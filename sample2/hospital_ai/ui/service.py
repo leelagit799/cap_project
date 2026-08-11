@@ -262,6 +262,25 @@ class DashboardService:
     def stats(self) -> dict[str, Any]:
         return self.store.stats()
 
+    def reset_patient_workflow(self, patient_id: str) -> dict[str, Any]:
+        """Clear stored cases, reports, and RAG chunks after document edits."""
+        import shutil
+
+        from hospital_ai.rag.store import get_store as get_vector_store
+
+        case_ids = self.store.delete_patient_cases(patient_id)
+        for case_id in case_ids:
+            report_dir = self.settings.reports_dir / case_id
+            if report_dir.is_dir():
+                shutil.rmtree(report_dir, ignore_errors=True)
+
+        removed_chunks = get_vector_store().remove_patient(patient_id)
+        return {
+            "patient_id": patient_id,
+            "deleted_cases": case_ids,
+            "removed_chunks": removed_chunks,
+        }
+
     def save_review(self, case_id: str, **kwargs: Any) -> None:
         corrections = merge_corrections(
             kwargs.get("corrections"),
