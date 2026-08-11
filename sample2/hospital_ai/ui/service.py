@@ -27,7 +27,6 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.core.logging import get_logger
 from hospital_ai.mcp_servers.client import MultiServerMCPClient
 from hospital_ai.storage import CaseStore, get_store
-from hospital_ai.ui.hitl_corrections import corrections_from_elicitation, merge_corrections
 
 _log = get_logger(__name__, component="ui-service")
 
@@ -189,12 +188,10 @@ class DashboardService:
         return [outcome.to_dict() for outcome in outcomes]
 
     def revalidate(self, case_id: str, corrections: dict[str, Any] | None = None) -> dict[str, Any]:
-        merged = merge_corrections(
-            corrections,
-            corrections_from_elicitation(_PENDING_ELICITATION),
-        )
-        outcome = self._run(lambda host: host.revalidate(case_id, merged or None))
-        self.reindex_case(case_id)
+        if corrections:
+            self.store.apply_corrections(case_id, corrections)
+            self.reindex_case(case_id)
+        outcome = self._run(lambda host: host.revalidate(case_id, None))
         return outcome.to_dict()
 
     def summary_events(self, case_id: str) -> list[dict[str, Any]]:
@@ -282,15 +279,73 @@ class DashboardService:
         }
 
     def save_review(self, case_id: str, **kwargs: Any) -> None:
-        corrections = merge_corrections(
-            kwargs.get("corrections"),
-            corrections_from_elicitation(_PENDING_ELICITATION),
-        )
+        corrections = kwargs.get("corrections")
         if corrections:
             self.store.apply_corrections(case_id, corrections)
             kwargs = {**kwargs, "corrections": corrections}
             self.reindex_case(case_id)
         self.store.save_review(case_id, **kwargs)
+
+    def apply_hitl_decision(
+        self,
+        case_id: str,
+        decision: str,
+        *,
+        corrections: dict[str, Any] | None = None,
+        reviewer: str = "clinician",
+        notes: str = "",
+        risk_override: str | None = None,
+        rerun_validation: bool = False,
+    ) -> dict[str, Any]:
+        """Apply reviewer corrections and the selected discharge decision."""
+        from hospital_ai.core.schemas import CaseStatus
+
+        normalized = decision.strip().lower().replace(" ", "_")
+        review_kwargs = {
+            "reviewer": reviewer,
+            "decision": decision,
+            "risk_override": risk_override,
+            "corrections": corrections or {},
+            "notes": notes,
+        }
+
+        if normalized == "no_call":
+            if rerun_validation:
+                outcome = self.revalidate(case_id, corrections)
+                self.store.save_review(
+                    case_id,
+                    reviewer=reviewer,
+                    decision=decision,
+                    risk_override=risk_override,
+                    corrections=corrections or {},
+                    notes=notes,
+                )
+                return outcome
+            self.save_review(case_id, **review_kwargs)
+            case = self.store.get_case(case_id)
+            return {
+                "case_id": case_id,
+                "status": case["status"] if case else "UNKNOWN",
+                "discharge_blocked": bool(case and case.get("discharge_blocked")),
+                "requires_hitl": case and case.get("status") == CaseStatus.HITL_PENDING.value,
+            }
+
+        blocked = normalized == "reject"
+        status = CaseStatus.HITL_PENDING if blocked else CaseStatus.SUMMARY_READY
+        if corrections:
+            self.store.apply_corrections(case_id, corrections)
+            self.reindex_case(case_id)
+        self.store.set_discharge_gate(case_id, discharge_blocked=blocked, status=status)
+        self.store.save_review(case_id, **review_kwargs)
+        case = self.store.get_case(case_id)
+        return {
+            "case_id": case_id,
+            "status": status.value,
+            "discharge_blocked": blocked,
+            "requires_hitl": blocked,
+            "risk_level": case.get("risk_level") if case else None,
+            "risk_score": case.get("risk_score") if case else None,
+        }
 
     def reindex_case(self, case_id: str) -> dict[str, Any]:
         """Refresh the RAG index from the latest stored case record."""

@@ -150,6 +150,18 @@ class CaseStore:
             conn.commit()
         self.audit(case_id, "host-orchestrator", "status_changed", status.value)
 
+    def set_discharge_gate(self, case_id: str, *, discharge_blocked: bool, status: CaseStatus) -> None:
+        """Apply a clinician discharge decision without re-running validation."""
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "UPDATE cases SET discharge_blocked = ?, status = ?, updated_at = ?"
+                " WHERE case_id = ?",
+                (int(discharge_blocked), status.value, utc_now_iso(), case_id),
+            )
+            conn.commit()
+        action = "discharge_denied" if discharge_blocked else "discharge_allowed"
+        self.audit(case_id, "hitl-reviewer", action, status.value)
+
     def save_record(self, case_id: str, record: dict[str, Any]) -> None:
         with self._lock, self._connect() as conn:
             conn.execute(

@@ -6,9 +6,9 @@ The five pages the specification fixes:
                           structured preview, process trigger
 2. Validation Report    — completeness score, cross-validation issues, risk
                           badge, recommendation, blocked indicator, trace link
-3. HITL Corrections     — editable medication table, elicitation form, risk
-                          override, approval decision, save, re-run validation
-4. RAG Q&A              — patient filter, example queries, injection indicator,
+3. HITL Corrections     — editable medication table, discharge decision,
+                          risk override, save, re-run validation
+4. RAG Q&A              — patient filter, injection indicator,
                           streaming display, source panel, RAG Triad metrics
 5. Discharge Summary    — patient-friendly summary, prescription table,
                           colour-coded labs, JSON/HTML/PDF export, trace link
@@ -28,16 +28,12 @@ from hospital_ai.core.config import get_settings
 from hospital_ai.rag.formatting import mask_pii
 from hospital_ai.ui.hitl_corrections import (
     apply_medication_suggestion,
-    corrections_from_elicitation,
     medication_correction_suggestions,
     medication_corrections_if_changed,
-    merge_corrections,
     normalize_medication_rows,
 )
 from hospital_ai.ui.service import (
     DashboardService,
-    elicitation_log,
-    set_elicitation_answers,
     unwrap_exception_group,
 )
 from hospital_ai.ui.streamlit_hitl import theme
@@ -439,7 +435,7 @@ def page_corrections(svc: DashboardService) -> None:
     st.markdown(
         theme.masthead(
             "HITL Corrections",
-            "Correct the record, answer elicitation requests and re-run validation.",
+            "Correct the record, choose a discharge decision, and save or re-run validation.",
             "Page 3 of 5",
         ),
         unsafe_allow_html=True,
@@ -575,33 +571,18 @@ def page_corrections(svc: DashboardService) -> None:
         if follow_up != follow_up_default:
             corrections["discharge_report.follow_up_appointments"] = [follow_up] if follow_up else []
 
-    st.markdown("#### Elicitation responses")
-    st.caption(
-        "Values supplied here are returned to the MCP Rules Engine the next time "
-        "validation runs. Leaving a field empty declines the request, which sends "
-        "the gap to human review."
-    )
-    requested: list[str] = []
-    for record_entry in validation.get("elicitations") or []:
-        requested.extend(record_entry.get("fields_requested") or [])
-
-    if requested:
-        answers: dict[str, Any] = {}
-        for field in sorted(set(requested)):
-            answers[field] = st.text_input(f"↳ {field}", key=f"elicit-{field}")
-        set_elicitation_answers(answers)
-        corrections = merge_corrections(corrections, corrections_from_elicitation(answers))
-    else:
-        st.info("No outstanding elicitation requests for this case.")
-
-    if elicitation_log():
-        with st.expander("Elicitation history"):
-            st.dataframe(pd.DataFrame(elicitation_log()), use_container_width=True, hide_index=True)
-
     st.markdown("#### Decision")
     columns = st.columns([1, 1, 1])
     with columns[0]:
-        decision = st.selectbox("Approval decision", ["approve", "edit", "reject"])
+        decision = st.selectbox(
+            "Decision",
+            ["allow", "reject", "no call"],
+            help=(
+                "**allow** — approve discharge regardless of validation findings. "
+                "**reject** — deny discharge. "
+                "**no call** — re-run automated validation and follow its outcome."
+            ),
+        )
     with columns[1]:
         override = st.selectbox("Risk override", ["(no override)", "Low", "Medium", "High"])
     with columns[2]:
@@ -612,41 +593,67 @@ def page_corrections(svc: DashboardService) -> None:
     save, rerun = st.columns(2)
     with save:
         if st.button("💾 Save feedback", use_container_width=True):
-            svc.save_review(
+            outcome = svc.apply_hitl_decision(
                 case["case_id"],
-                reviewer=reviewer,
-                decision=decision,
-                risk_override=None if override.startswith("(") else override,
+                decision,
                 corrections=corrections,
+                reviewer=reviewer,
                 notes=notes,
+                risk_override=None if override.startswith("(") else override,
+                rerun_validation=False,
             )
             st.session_state[pending_key] = None
             refreshed = st.session_state.setdefault("rag_refresh_patients", [])
             if case["patient_id"] not in refreshed:
                 refreshed.append(case["patient_id"])
             st.toast("Review saved", icon="💾")
-            st.success("Feedback recorded and corrections saved to the case record.")
+            if decision == "no call":
+                st.success("Feedback recorded and corrections saved to the case record.")
+            elif decision == "allow":
+                st.success("Discharge approved. The patient may proceed to summary.")
+            else:
+                st.success("Discharge denied. The case remains blocked for review.")
+            refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.rerun()
 
     with rerun:
-        if st.button("🔄 Re-run validation", type="primary", use_container_width=True):
-            with st.spinner("Applying corrections and re-validating…"):
-                outcome = svc.revalidate(case["case_id"], corrections)
+        rerun_label = (
+            "🔄 Re-run validation"
+            if decision == "no call"
+            else "🔄 Apply decision"
+        )
+        if st.button(rerun_label, type="primary", use_container_width=True):
+            with st.spinner(
+                "Re-running validation…" if decision == "no call" else "Applying decision…"
+            ):
+                outcome = svc.apply_hitl_decision(
+                    case["case_id"],
+                    decision,
+                    corrections=corrections,
+                    reviewer=reviewer,
+                    notes=notes,
+                    risk_override=None if override.startswith("(") else override,
+                    rerun_validation=True,
+                )
             st.session_state[pending_key] = None
             refreshed = st.session_state.setdefault("rag_refresh_patients", [])
             if case["patient_id"] not in refreshed:
                 refreshed.append(case["patient_id"])
             refresh_active_from_case(svc.case(case["case_id"]) or case)
-            st.toast("Validation re-run", icon="🔄")
-            if outcome["requires_hitl"]:
+            st.toast("Decision applied", icon="🔄")
+            if decision == "allow":
+                st.success("Discharge approved by clinician override.")
+            elif decision == "reject":
+                st.error("Discharge denied by clinician override.")
+            elif outcome.get("requires_hitl"):
                 st.error(
-                    f"Still requires review — {outcome['risk_level']} risk, "
-                    f"score {outcome['risk_score']}."
+                    f"Still requires review — {outcome.get('risk_level')} risk, "
+                    f"score {outcome.get('risk_score')}."
                 )
             else:
                 st.success(
-                    f"Now cleared — {outcome['risk_level']} risk, "
-                    f"score {outcome['risk_score']}."
+                    f"Validation cleared — {outcome.get('risk_level')} risk, "
+                    f"score {outcome.get('risk_score')}."
                 )
             st.rerun()
 
@@ -678,14 +685,6 @@ def page_corrections(svc: DashboardService) -> None:
 
 
 # --- Page 4: RAG Q&A ---------------------------------------------------------
-
-EXAMPLE_QUESTIONS = [
-    "What medications was this patient discharged on?",
-    "Are there any documented allergies?",
-    "What were the abnormal lab results?",
-    "Has the hospital bill been settled?",
-    "When is the follow-up appointment?",
-]
 
 
 def page_rag(svc: DashboardService) -> None:
@@ -739,14 +738,8 @@ def page_rag(svc: DashboardService) -> None:
                 "The Q&A index has been refreshed — ask again for updated answers."
             )
 
-    st.markdown("**Example questions**")
-    columns = st.columns(len(EXAMPLE_QUESTIONS))
     if "rag_question" not in st.session_state:
         st.session_state.rag_question = ""
-    for column, example in zip(columns, EXAMPLE_QUESTIONS):
-        with column:
-            if st.button(example.split()[1].title(), help=example, use_container_width=True):
-                st.session_state.rag_question = example
 
     question = st.text_input(
         "Your question", value=st.session_state.rag_question, key="rag-input"
