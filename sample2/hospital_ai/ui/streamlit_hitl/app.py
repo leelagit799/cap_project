@@ -41,6 +41,7 @@ from hospital_ai.ui.service import (
     unwrap_exception_group,
 )
 from hospital_ai.ui.streamlit_hitl import theme
+from hospital_ai.observability import langfuse_status
 from hospital_ai.ui.streamlit_hitl.page_upload import page_upload
 from hospital_ai.ui.streamlit_hitl.session_context import (
     activate_from_outcome,
@@ -163,10 +164,26 @@ def render_sidebar(svc: DashboardService) -> str:
                 for name, info in health.items():
                     st.write(f"{'🟢' if info.get('up') else '🔴'} {name} · :{info['port']}")
 
+            if st.button("Check LangFuse", use_container_width=True):
+                with st.spinner("Verifying LangFuse credentials…"):
+                    status = langfuse_status(probe=True)
+                icon = {"connected": "🟢", "disabled": "🟡", "error": "🔴"}.get(
+                    status["state"], "⚪"
+                )
+                st.write(f"{icon} LangFuse · {status['message']}")
+                if not status["env_file_exists"]:
+                    st.caption(f"Create `{status['env_file']}` from `.env.example`.")
+
         settings = get_settings()
+        lf = langfuse_status()
+        lf_label = {
+            "connected": f"connected ({lf['base_url']})",
+            "disabled": "offline (JSONL only)",
+            "error": "auth error (JSONL only)",
+        }.get(lf["state"], "unknown")
         st.caption(
             f"Rules `{settings.rules_version[:12]}…`\n\n"
-            f"LangFuse {'connected' if settings.langfuse.enabled else 'offline (JSONL)'}"
+            f"LangFuse {lf_label}"
         )
     return PAGES[page]
 

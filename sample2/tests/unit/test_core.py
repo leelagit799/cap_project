@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 
+from hospital_ai.core.config import _load_dotenv
 from hospital_ai.core.errors import DischargeFlowError, TransportError
 from hospital_ai.core.ids import extract_patient_id, new_case_id, new_trace_id
 from hospital_ai.core.retry import CircuitBreaker, retry_async, retry_sync
@@ -50,6 +52,18 @@ class TestConfig:
             "quality_thresholds",
         ):
             assert section in settings.rules
+
+    def test_dotenv_overrides_empty_environment_placeholders(self, tmp_path, monkeypatch):
+        env_path = tmp_path / ".env"
+        env_path.write_text(
+            "LANGFUSE_PUBLIC_KEY=pk-from-file\nLANGFUSE_SECRET_KEY=sk-from-file\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "")
+        monkeypatch.delenv("LANGFUSE_SECRET_KEY", raising=False)
+        _load_dotenv(env_path)
+        assert os.environ["LANGFUSE_PUBLIC_KEY"] == "pk-from-file"
+        assert os.environ["LANGFUSE_SECRET_KEY"] == "sk-from-file"
 
     def test_prompts_cover_table_2(self, settings):
         for prompt in (

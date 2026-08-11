@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hospital_ai.observability import Tracer, _as_type, reset_client
+from hospital_ai.observability import Tracer, _as_type, langfuse_status, reset_client
 
 
 @pytest.fixture(autouse=True)
@@ -100,3 +101,42 @@ class TestTracerLangfuseV4:
 
         assert client is None
         mock_client.auth_check.assert_called_once()
+
+    def test_langfuse_status_reports_disabled_without_keys(self):
+        with patch.dict(
+            "os.environ",
+            {"AGENT_AUTH_TOKEN": "test-token"},
+            clear=True,
+        ):
+            from hospital_ai.core.config import get_settings
+
+            get_settings.cache_clear()
+            reset_client()
+            status = langfuse_status()
+            get_settings.cache_clear()
+
+        assert status["state"] == "disabled"
+        assert "LANGFUSE_PUBLIC_KEY" in status["message"]
+
+    def test_langfuse_status_reports_connected_when_auth_succeeds(self):
+        mock_client = MagicMock()
+        mock_client.auth_check.return_value = True
+
+        with patch("langfuse.Langfuse", return_value=mock_client):
+            with patch.dict(
+                "os.environ",
+                {
+                    "LANGFUSE_PUBLIC_KEY": "pk-test",
+                    "LANGFUSE_SECRET_KEY": "sk-test",
+                    "AGENT_AUTH_TOKEN": "test-token",
+                },
+                clear=False,
+            ):
+                from hospital_ai.core.config import get_settings
+
+                get_settings.cache_clear()
+                reset_client()
+                status = langfuse_status(probe=True)
+                get_settings.cache_clear()
+
+        assert status["state"] == "connected"

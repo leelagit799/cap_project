@@ -28,7 +28,12 @@ CONFIG_DIR = PROJECT_ROOT / "configs"
 
 
 def _load_dotenv(path: Path) -> None:
-    """Populate os.environ from a .env file without overriding real env vars."""
+    """Populate os.environ from a .env file.
+
+    Values from ``.env`` are applied when the variable is unset or empty in the
+    process environment, so placeholder exports like ``LANGFUSE_PUBLIC_KEY=`` do
+    not block credentials that are defined only in ``.env``.
+    """
     if not path.is_file():
         return
     for raw in path.read_text(encoding="utf-8").splitlines():
@@ -37,8 +42,16 @@ def _load_dotenv(path: Path) -> None:
             continue
         key, _, value = line.partition("=")
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+        if not key:
+            continue
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1]
+        current = os.environ.get(key)
+        if current is None or not current.strip():
+            os.environ[key] = value
 
 
 _load_dotenv(PROJECT_ROOT / ".env")
@@ -183,6 +196,15 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_str(name: str) -> str | None:
+    """Return a trimmed environment value, treating blank strings as unset."""
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    value = raw.strip()
+    return value or None
+
+
 def _rules_version(rules_path: Path) -> str:
     """SHA-256 of rules.yaml, stamped onto every audit report (doc §2.5)."""
     return hashlib.sha256(rules_path.read_bytes()).hexdigest()
@@ -214,9 +236,11 @@ def get_settings() -> Settings:
     )
 
     langfuse = LangfuseSettings(
-        public_key=os.getenv("LANGFUSE_PUBLIC_KEY") or None,
-        secret_key=os.getenv("LANGFUSE_SECRET_KEY") or None,
-        host=os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL") or LangfuseSettings.host,
+        public_key=_env_str("LANGFUSE_PUBLIC_KEY"),
+        secret_key=_env_str("LANGFUSE_SECRET_KEY"),
+        host=_env_str("LANGFUSE_HOST")
+        or _env_str("LANGFUSE_BASE_URL")
+        or LangfuseSettings.host,
     )
 
     roots_cfg = agent_cfg.get("roots") or {}
