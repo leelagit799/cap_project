@@ -139,6 +139,16 @@ CSS = """
                       to { opacity: 1; transform: none; } }
 
 /* ---- Streamlit chrome ---- */
+/* Keep the app header visible so the sidebar collapse/expand control stays reachable. */
+header[data-testid="stHeader"] {
+  visibility: visible !important;
+  display: block !important;
+}
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"] {
+  visibility: visible !important;
+}
 section[data-testid="stSidebar"] { background: var(--df-surface);
   border-right: 1px solid var(--df-line); }
 div[data-testid="stDataFrame"] { border: 1px solid var(--df-line); border-radius: 10px; }

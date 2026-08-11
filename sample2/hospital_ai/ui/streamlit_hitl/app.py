@@ -7,7 +7,7 @@ The five pages the specification fixes:
 2. Validation Report    — completeness score, cross-validation issues, risk
                           badge, recommendation, blocked indicator, trace link
 3. HITL Corrections     — editable medication table, discharge decision,
-                          risk override, save, re-run validation
+                          save, re-run validation
 4. RAG Q&A              — patient filter, injection indicator,
                           streaming display, source panel, RAG Triad metrics
 5. Discharge Summary    — patient-friendly summary, prescription table,
@@ -572,23 +572,15 @@ def page_corrections(svc: DashboardService) -> None:
             corrections["discharge_report.follow_up_appointments"] = [follow_up] if follow_up else []
 
     st.markdown("#### Decision")
-    columns = st.columns([1, 1, 1])
-    with columns[0]:
-        decision = st.selectbox(
-            "Decision",
-            ["allow", "reject", "no call"],
-            help=(
-                "**allow** — approve discharge regardless of validation findings. "
-                "**reject** — deny discharge. "
-                "**no call** — re-run automated validation and follow its outcome."
-            ),
-        )
-    with columns[1]:
-        override = st.selectbox("Risk override", ["(no override)", "Low", "Medium", "High"])
-    with columns[2]:
-        reviewer = st.text_input("Reviewer", "clinician")
-
-    notes = st.text_area("Review notes", placeholder="Rationale for the decision…")
+    decision = st.selectbox(
+        "Decision",
+        ["allow", "reject", "no call"],
+        help=(
+            "**allow** — discharge the patient regardless of validation findings. "
+            "**reject** — deny discharge. "
+            "**no call** — re-run automated validation and follow its outcome."
+        ),
+    )
 
     save, rerun = st.columns(2)
     with save:
@@ -597,9 +589,6 @@ def page_corrections(svc: DashboardService) -> None:
                 case["case_id"],
                 decision,
                 corrections=corrections,
-                reviewer=reviewer,
-                notes=notes,
-                risk_override=None if override.startswith("(") else override,
                 rerun_validation=False,
             )
             st.session_state[pending_key] = None
@@ -630,9 +619,6 @@ def page_corrections(svc: DashboardService) -> None:
                     case["case_id"],
                     decision,
                     corrections=corrections,
-                    reviewer=reviewer,
-                    notes=notes,
-                    risk_override=None if override.startswith("(") else override,
                     rerun_validation=True,
                 )
             st.session_state[pending_key] = None
