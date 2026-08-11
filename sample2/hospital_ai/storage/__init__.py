@@ -150,13 +150,25 @@ class CaseStore:
             conn.commit()
         self.audit(case_id, "host-orchestrator", "status_changed", status.value)
 
-    def set_discharge_gate(self, case_id: str, *, discharge_blocked: bool, status: CaseStatus) -> None:
+    def set_discharge_gate(
+        self,
+        case_id: str,
+        *,
+        discharge_blocked: bool,
+        status: CaseStatus,
+        risk_level: str | None = None,
+    ) -> None:
         """Apply a clinician discharge decision without re-running validation."""
+        fields = ["discharge_blocked = ?", "status = ?", "updated_at = ?"]
+        values: list[Any] = [int(discharge_blocked), status.value, utc_now_iso()]
+        if risk_level is not None:
+            fields.insert(2, "risk_level = ?")
+            values.insert(2, risk_level)
+        values.append(case_id)
         with self._lock, self._connect() as conn:
             conn.execute(
-                "UPDATE cases SET discharge_blocked = ?, status = ?, updated_at = ?"
-                " WHERE case_id = ?",
-                (int(discharge_blocked), status.value, utc_now_iso(), case_id),
+                f"UPDATE cases SET {', '.join(fields)} WHERE case_id = ?",
+                values,
             )
             conn.commit()
         action = "discharge_denied" if discharge_blocked else "discharge_allowed"

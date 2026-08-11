@@ -200,6 +200,19 @@ class DashboardService:
 
         return self._run(collect)
 
+    def generate_summary(self, case_id: str) -> dict[str, Any]:
+        """Generate and persist a patient-facing discharge summary when allowed."""
+        events = self.summary_events(case_id)
+        for event in events:
+            if event.get("type") == "blocked":
+                return {"ok": False, **event}
+            if event.get("type") == "error":
+                return {"ok": False, "error": event.get("error", "Summary generation failed")}
+        summary = self.summary(case_id)
+        if summary is None:
+            return {"ok": False, "error": "Summary generation did not produce a stored result"}
+        return {"ok": True, "summary": summary}
+
     def ask(
         self,
         question: str,
@@ -335,17 +348,29 @@ class DashboardService:
         if corrections:
             self.store.apply_corrections(case_id, corrections)
             self.reindex_case(case_id)
-        self.store.set_discharge_gate(case_id, discharge_blocked=blocked, status=status)
+        self.store.set_discharge_gate(
+            case_id,
+            discharge_blocked=blocked,
+            status=status,
+            risk_level="High" if blocked else "Low",
+        )
         self.store.save_review(case_id, **review_kwargs)
         case = self.store.get_case(case_id)
-        return {
+        result: dict[str, Any] = {
             "case_id": case_id,
             "status": status.value,
             "discharge_blocked": blocked,
             "requires_hitl": blocked,
             "risk_level": case.get("risk_level") if case else None,
             "risk_score": case.get("risk_score") if case else None,
+            "summary_generated": False,
         }
+        if not blocked:
+            summary_result = self.generate_summary(case_id)
+            result["summary_generated"] = summary_result.get("ok", False)
+            if not summary_result.get("ok"):
+                result["summary_error"] = summary_result.get("message") or summary_result.get("error")
+        return result
 
     def reindex_case(self, case_id: str) -> dict[str, Any]:
         """Refresh the RAG index from the latest stored case record."""

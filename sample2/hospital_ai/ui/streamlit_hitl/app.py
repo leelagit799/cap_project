@@ -599,7 +599,12 @@ def page_corrections(svc: DashboardService) -> None:
             if decision == "no call":
                 st.success("Feedback recorded and corrections saved to the case record.")
             elif decision == "allow":
-                st.success("Discharge approved. The patient may proceed to summary.")
+                if outcome.get("summary_generated"):
+                    st.success("Discharge approved and patient summary generated.")
+                else:
+                    st.success("Discharge approved. The patient may proceed to Discharge Summary.")
+                    if outcome.get("summary_error"):
+                        st.warning(outcome["summary_error"])
             else:
                 st.success("Discharge denied. The case remains blocked for review.")
             refresh_active_from_case(svc.case(case["case_id"]) or case)
@@ -628,7 +633,12 @@ def page_corrections(svc: DashboardService) -> None:
             refresh_active_from_case(svc.case(case["case_id"]) or case)
             st.toast("Decision applied", icon="🔄")
             if decision == "allow":
-                st.success("Discharge approved by clinician override.")
+                if outcome.get("summary_generated"):
+                    st.success("Discharge approved and patient summary generated.")
+                else:
+                    st.success("Discharge approved by clinician override.")
+                    if outcome.get("summary_error"):
+                        st.warning(outcome["summary_error"])
             elif decision == "reject":
                 st.error("Discharge denied by clinician override.")
             elif outcome.get("requires_hitl"):

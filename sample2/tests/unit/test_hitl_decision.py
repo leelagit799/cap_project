@@ -41,6 +41,11 @@ class TestHitlDecision:
 
         svc = DashboardService(store=store)
         monkeypatch.setattr(svc, "reindex_case", lambda case_id: {"indexed": 0})
+        monkeypatch.setattr(
+            svc,
+            "generate_summary",
+            lambda case_id: {"ok": True, "summary": {"sections": []}},
+        )
 
         outcome = svc.apply_hitl_decision(
             "CASE-P1019",
@@ -54,6 +59,8 @@ class TestHitlDecision:
         assert outcome["status"] == CaseStatus.SUMMARY_READY.value
         assert case["discharge_blocked"] == 0
         assert case["status"] == CaseStatus.SUMMARY_READY.value
+        assert case["risk_level"] == "Low"
+        assert outcome["summary_generated"] is True
         assert store.get_record("CASE-P1019")["bill"]["payment_status"] == "PAID"
 
     def test_reject_blocks_discharge(self, dashboard_env, monkeypatch):
